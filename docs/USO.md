@@ -58,6 +58,17 @@ Los mandos USB o Bluetooth se detectan solos, también si se conectan con la app
 
 Con la ROM de demostración se puede comprobar: al mantener el botón A del jugador 1 la pantalla pasa de azul a rojo.
 
+## Sonido
+
+El sonido sale por el dispositivo de audio por defecto del sistema. En el menú **Audio**:
+
+- **Silenciar** (tecla `M`).
+- **Volumen**, de 0 a 100 %.
+
+Ambos ajustes se recuerdan. Si no hay ningún dispositivo de audio, la app funciona igual pero en silencio, y el menú **Audio** indica el motivo.
+
+Con la ROM de demostración se puede comprobar: suena un tono mientras se mantiene el botón A del jugador 1.
+
 ## Imagen
 
 La imagen se centra y se escala al redimensionar la ventana. Por defecto solo en múltiplos enteros (×1, ×2, ×3...), para que todos los píxeles midan lo mismo; se cambia en **Ver → Escalado entero**.

@@ -15,4 +15,5 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - `nes-app`: carga de ROMs por menú (`Ctrl+O`), arrastrar y soltar, línea de comandos y lista de recientes; ventana de error para archivos no válidos.
 - `nes-app`: configuración persistente (recientes y escalado).
 - `nes-app`: controles por teclado para dos jugadores y por mando (`gilrs`); ventana **Ayuda → Controles**.
+- `nes-app`: salida de sonido con `cpal`, volumen y silencio (`M`), y control dinámico de velocidad para mantener el audio sincronizado.
 - `nes-core`: ejemplo `dump_demo` para escribir la ROM de demostración en disco.
