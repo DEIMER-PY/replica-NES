@@ -94,6 +94,7 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 | `video.rs` | `Screen` (textura del frame) y `fit_rect` (colocación y escalado) |
 | `rom.rs` | `RomFile` (lectura de una ROM del disco) y `RecentRoms` (lista de recientes) |
 | `config.rs` | `Config`: ajustes persistentes, guardados con el almacenamiento de `eframe` |
+| `input.rs` | `KeyBindings` (teclado), `Gamepads` (mandos con `gilrs`) y `PadState` (botones pulsados) |
 
 ### Ciclo de la app
 
@@ -116,6 +117,21 @@ ruta ──► RomFile::read ──► NesApp::load_rom ──► Emulator::load
 ```
 
 `nes-core` solo recibe bytes; leer el disco es responsabilidad de la app. Una ROM que carga bien se anota en recientes; una ruta que ya no existe se elimina de la lista.
+
+### Controles
+
+Antes de emular, en cada repintado, la app calcula el estado de los dos mandos de la NES:
+
+```
+teclado ──► KeyBindings::read ──► [PadState; 2] ─┐
+                                                 ├─ merge (OR) ──► Emulator::set_button × 8 × 2
+mandos  ──► Gamepads::read    ──► [PadState; 2] ─┘
+```
+
+- **Estado, no eventos.** Se pregunta qué teclas están pulsadas ahora, en lugar de procesar pulsaciones y sueltas. Así no se pierde ningún cambio aunque un repintado emule varios frames.
+- **El teclado se cede a la interfaz.** Si `egui` está usando el teclado, o hay `Ctrl`/`Alt` pulsado, no se envía nada al juego.
+- **Los mandos son opcionales.** Si `gilrs` no puede inicializarse, la app sigue funcionando solo con teclado.
+- **Teclas configurables.** `KeyBindings` forma parte de `Config` y se guarda en disco.
 
 ### Configuración persistente
 

@@ -29,6 +29,35 @@ Para generar la demo como archivo y probar la carga desde disco:
 cargo run -p nes-core --example dump_demo -- demo.nes
 ```
 
+## Controles
+
+### Teclado
+
+| Botón NES | Jugador 1 | Jugador 2 |
+|---|---|---|
+| Arriba / Abajo / Izquierda / Derecha | Flechas | `I` / `K` / `J` / `L` |
+| A | `X` | `H` |
+| B | `Z` | `G` |
+| Select | `Retroceso` | `T` |
+| Start | `Enter` | `Y` |
+
+**Ayuda → Controles** muestra esta tabla dentro de la app, junto con los mandos conectados.
+
+El teclado no llega al juego mientras hay un menú abierto o se mantiene `Ctrl` o `Alt`, para que los atajos de la app no muevan al personaje.
+
+### Mandos
+
+Los mandos USB o Bluetooth se detectan solos, también si se conectan con la app abierta. El primero controla al jugador 1 y el segundo al jugador 2; teclado y mando funcionan a la vez.
+
+| Botón NES | Mando |
+|---|---|
+| Dirección | Cruceta o stick izquierdo |
+| A | Botón inferior (A en Xbox, ✕ en PlayStation) |
+| B | Botón izquierdo (X en Xbox, □ en PlayStation) |
+| Select / Start | Select / Start |
+
+Con la ROM de demostración se puede comprobar: al mantener el botón A del jugador 1 la pantalla pasa de azul a rojo.
+
 ## Imagen
 
 La imagen se centra y se escala al redimensionar la ventana. Por defecto solo en múltiplos enteros (×1, ×2, ×3...), para que todos los píxeles midan lo mismo; se cambia en **Ver → Escalado entero**.
