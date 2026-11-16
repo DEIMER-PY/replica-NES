@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{input::KeyBindings, rom::RecentRoms};
+use crate::{input::KeyBindings, rom::RecentRoms, video::Scaling};
 
 /// Clave bajo la que se guarda la configuración.
 const STORAGE_KEY: &str = "config";
@@ -18,6 +18,8 @@ pub struct Config {
     pub recent_roms: RecentRoms,
     /// Escalar la imagen solo en múltiplos enteros.
     pub integer_scaling: bool,
+    /// Mostrar la imagen con la proporción de un televisor (píxeles 8:7).
+    pub tv_aspect: bool,
     /// Teclas asignadas a los mandos.
     pub key_bindings: KeyBindings,
     /// Volumen del sonido, de 0 a 100.
@@ -31,6 +33,7 @@ impl Default for Config {
         Self {
             recent_roms: RecentRoms::default(),
             integer_scaling: true,
+            tv_aspect: false,
             key_bindings: KeyBindings::default(),
             volume: 80,
             muted: false,
@@ -39,6 +42,14 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Opciones de escalado de la imagen.
+    pub const fn scaling(&self) -> Scaling {
+        Scaling {
+            integer: self.integer_scaling,
+            tv_aspect: self.tv_aspect,
+        }
+    }
+
     /// Carga la configuración guardada, o la de por defecto si no hay o no es válida.
     pub fn load(storage: Option<&dyn eframe::Storage>) -> Self {
         storage
