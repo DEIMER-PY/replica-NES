@@ -5,6 +5,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [0.1.0] - 2026-11-16
+
+Primera versión: emulador jugable en escritorio y en el navegador.
+
 ### Añadido
 
 - Estructura del workspace con los crates `nes-core` y `nes-app`.
