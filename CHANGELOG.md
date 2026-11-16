@@ -11,3 +11,4 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - Documentación base, guía de desarrollo y CI (formato, lints y tests).
 - `nes-core`: `Emulator` sobre `tetanes-core` (carga de ROM, frame, audio, mandos, reset, save states, RAM con batería).
 - `nes-core`: ROM de demostración propia (`demo_rom`) y tests headless de extremo a extremo.
+- `nes-app`: ventana `eframe` con la imagen del juego, escalado entero y ritmo de emulación independiente de la frecuencia del monitor.

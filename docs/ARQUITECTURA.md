@@ -84,4 +84,30 @@ app                         nes-core                 tetanes-core
 
 ## `nes-app`
 
-Los módulos se documentan aquí a medida que se implementan.
+Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui`).
+
+| Módulo | Contenido |
+|---|---|
+| `main.rs` | Punto de entrada nativo: crea la ventana y arranca `NesApp` |
+| `app.rs` | `NesApp`: estado de la app; implementa `eframe::App` |
+| `clock.rs` | `FrameClock`: cuántos frames de la NES tocan en cada repintado |
+| `video.rs` | `Screen` (textura del frame) y `fit_rect` (colocación y escalado) |
+
+### Ciclo de la app
+
+`eframe` llama a dos métodos en cada repintado de la ventana:
+
+1. **`logic`** — emula. `FrameClock` convierte el tiempo transcurrido en frames de la NES, se llama a `Emulator::run_frame` esas veces y el último frame se sube a la textura.
+2. **`ui`** — dibuja. `Screen::show` pinta la textura centrada sobre fondo negro.
+
+Al final de `logic` se pide siempre otro repintado (`request_repaint`), porque la emulación es continua y no depende de eventos del usuario.
+
+### Ritmo de la emulación
+
+El monitor y la consola no van a la misma frecuencia: un monitor puede ir a 60, 75 o 144 Hz y la NES a 60,1 fps (NTSC) o 50 fps (PAL). `FrameClock` acumula el tiempo real entre repintados y devuelve los frames enteros que caben, guardando la fracción sobrante. Así la velocidad del juego es correcta en cualquier monitor.
+
+Si la app se retrasa más de 3 frames (ventana minimizada, tirón del sistema), el retraso se descarta en lugar de emularse de golpe.
+
+### Escalado
+
+`fit_rect` conserva la proporción 256×240 y centra la imagen. Con escalado entero (por defecto) el factor es un múltiplo entero en píxeles físicos, teniendo en cuenta la escala de pantalla del sistema, para que todos los píxeles de la NES midan lo mismo. La textura usa filtrado `NEAREST` para que no se vea borrosa.
