@@ -7,6 +7,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Añadido
 
+- `nes-app`: pantalla de inicio con botones para abrir una ROM, biblioteca de la carpeta de juegos, recientes y aviso al arrastrar un archivo.
 - `nes-app`: reasignación de los botones del mando por jugador en **Ajustes → Controles**, también para botones que el sistema no reconoce (mandos genéricos).
 
 - `docs/INSTALACION.md`: instalación por sistema operativo, requisitos mínimos y dónde conseguir ROMs.
@@ -16,6 +17,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Cambiado
 
+- `nes-app`: sin ROM en la línea de comandos, la app arranca en la pantalla de inicio en lugar de cargar la demo.
 - `nes-app`: la ventana de ajustes se desplaza si no cabe en la ventana de la app.
 - Perfil `release` con LTO completo y `panic = "abort"`: un 16 % más rápido en el benchmark, y ejecutable sin símbolos.
 - `nes-app`: el avance rápido solo dibuja el último frame de cada repintado y no genera audio.

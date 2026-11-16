@@ -20,6 +20,8 @@ const STORAGE_KEY: &str = "config";
 pub struct Config {
     /// ROMs abiertas recientemente.
     pub recent_roms: RecentRoms,
+    /// Carpeta de juegos que se lista en la pantalla de inicio.
+    pub rom_dir: Option<std::path::PathBuf>,
     /// Escalar la imagen solo en múltiplos enteros.
     pub integer_scaling: bool,
     /// Mostrar la imagen con la proporción de un televisor (píxeles 8:7).
@@ -38,6 +40,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             recent_roms: RecentRoms::default(),
+            rom_dir: None,
             integer_scaling: true,
             tv_aspect: false,
             key_bindings: KeyBindings::default(),

@@ -60,7 +60,7 @@ Si la ventana no aparece o se cierra al abrir, consulta [Solución de problemas]
 
    ```sh
    chmod +x replica-NES-vX.Y.Z-linux-x64
-   ./replica-NES-vX.Y.Z-linux-x64            # con la demo
+   ./replica-NES-vX.Y.Z-linux-x64            # pantalla de inicio
    ./replica-NES-vX.Y.Z-linux-x64 juego.nes  # con un juego
    ```
 
@@ -118,7 +118,7 @@ La primera compilación descarga las dependencias y tarda entre 10 y 20 minutos 
 El ejecutable queda en `target/release/nes-app` (`nes-app.exe` en Windows). Se puede copiar a cualquier carpeta.
 
 ```sh
-./target/release/nes-app              # con la demo
+./target/release/nes-app              # pantalla de inicio
 ./target/release/nes-app juego.nes    # con un juego
 ```
 
@@ -126,7 +126,7 @@ Para actualizar más adelante: `git pull` y de nuevo `cargo build -p nes-app --r
 
 ## Comprobar que funciona
 
-Sin juego, la app abre una **ROM de demostración** propia: la pantalla se ve azul. Al mantener la tecla `X` (botón A) pasa a rojo y suena un tono. Con eso quedan comprobados el vídeo, los controles y el sonido. El resto de teclas y funciones está en [USO.md](USO.md).
+Al abrir la app aparece la pantalla de inicio. Pulsa **Probar la demo**: carga una ROM de demostración propia y la pantalla se ve azul. Al mantener la tecla `X` (botón A) pasa a rojo y suena un tono. Con eso quedan comprobados el vídeo, los controles y el sonido. El resto de teclas y funciones está en [USO.md](USO.md).
 
 ## Dónde conseguir ROMs
 
@@ -142,7 +142,7 @@ Formas legítimas de conseguir juegos:
 - **ROMs de prueba.** La comunidad [NESdev](https://www.nesdev.org/wiki/Emulator_tests) mantiene programas de test de libre distribución, útiles para comprobar la precisión del emulador.
 - **La demo del proyecto.** `cargo run -p nes-core --example dump_demo -- demo.nes` la escribe como archivo, para probar la carga desde disco.
 
-Guarda las ROMs fuera de la carpeta del repositorio, o ten en cuenta que los `.nes` están en `.gitignore` para que no se suban por error.
+Reúne tus ROMs en una carpeta y elígela con **Carpeta de juegos…** en la pantalla de inicio: aparecerán en la biblioteca. Guárdalas fuera de la carpeta del repositorio, o ten en cuenta que los `.nes` están en `.gitignore` para que no se suban por error.
 
 ## Dónde guarda sus datos la app
 

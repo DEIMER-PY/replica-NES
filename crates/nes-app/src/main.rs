@@ -12,6 +12,7 @@ mod app;
 mod audio;
 mod clock;
 mod config;
+mod home;
 mod input;
 mod rom;
 mod settings;
