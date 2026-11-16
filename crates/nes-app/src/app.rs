@@ -117,6 +117,11 @@ pub struct NesApp {
     audio: Option<AudioOutput>,
     /// Motivo por el que no hay sonido, para mostrarlo en el menú Audio.
     pub(crate) audio_error: Option<String>,
+    /// Si todavía no se ha intentado abrir la salida de sonido.
+    audio_pending: bool,
+    /// ROMs que el navegador termina de leer en segundo plano.
+    #[cfg(target_arch = "wasm32")]
+    rom_inbox: crate::web::RomInbox,
     saves: SaveStore,
     /// Identificador de la ROM cargada, con el que se nombran sus archivos guardados.
     rom_id: Option<String>,
@@ -138,22 +143,17 @@ pub struct NesApp {
 impl NesApp {
     /// Crea la app. Carga `initial_rom` si se indica; si no, la ROM de demostración.
     pub fn new(cc: &eframe::CreationContext<'_>, initial_rom: Option<PathBuf>) -> Self {
-        let (audio, audio_error) = match AudioOutput::open() {
-            Ok(audio) => (Some(audio), None),
-            Err(err) => (None, Some(err)),
-        };
-        let mut emulator = Emulator::new();
-        if let Some(audio) = &audio {
-            emulator.set_sample_rate(audio.sample_rate() as f32);
-        }
         let mut app = Self {
-            emulator,
+            emulator: Emulator::new(),
             screen: Screen::default(),
             clock: FrameClock::default(),
             config: Config::load(cc.storage),
             gamepads: Gamepads::default(),
-            audio,
-            audio_error,
+            audio: None,
+            audio_error: None,
+            audio_pending: true,
+            #[cfg(target_arch = "wasm32")]
+            rom_inbox: crate::web::RomInbox::default(),
             saves: SaveStore::for_app(APP_NAME),
             rom_id: None,
             battery_on_disk: None,
@@ -164,6 +164,10 @@ impl NesApp {
             settings: SettingsWindow::default(),
             error: None,
         };
+        // En escritorio el sonido se abre al arrancar. En la web hay que esperar a la
+        // primera pulsación del usuario: los navegadores bloquean el audio hasta entonces.
+        #[cfg(not(target_arch = "wasm32"))]
+        app.open_audio();
         match initial_rom {
             Some(path) => app.open_path(&cc.egui_ctx, &path),
             None => app.perform(&cc.egui_ctx, Action::LoadDemo),
@@ -211,6 +215,48 @@ impl NesApp {
         }
     }
 
+    /// Abre la salida de sonido y ajusta el emulador a su frecuencia de muestreo.
+    fn open_audio(&mut self) {
+        self.audio_pending = false;
+        match AudioOutput::open() {
+            Ok(audio) => {
+                self.emulator.set_sample_rate(audio.sample_rate() as f32);
+                self.audio = Some(audio);
+                self.audio_error = None;
+            }
+            Err(err) => self.audio_error = Some(err),
+        }
+    }
+
+    /// En la web, abre el sonido en cuanto el usuario pulsa una tecla o hace clic.
+    #[cfg(target_arch = "wasm32")]
+    fn open_audio_on_user_gesture(&mut self, ctx: &egui::Context) {
+        if !self.audio_pending {
+            return;
+        }
+        let gesture = ctx.input(|input| {
+            input.pointer.any_pressed()
+                || input
+                    .events
+                    .iter()
+                    .any(|event| matches!(event, egui::Event::Key { pressed: true, .. }))
+        });
+        if gesture {
+            self.open_audio();
+        }
+    }
+
+    /// En la web, carga las ROMs que el navegador ha terminado de leer.
+    #[cfg(target_arch = "wasm32")]
+    fn receive_roms(&mut self, ctx: &egui::Context) {
+        while let Some(result) = self.rom_inbox.poll() {
+            match result {
+                Ok(rom) => self.load_rom(ctx, &rom),
+                Err(err) => self.error = Some(err),
+            }
+        }
+    }
+
     /// Si hay un juego cargado.
     pub fn has_rom(&self) -> bool {
         self.emulator.rom().is_some()
@@ -253,6 +299,7 @@ impl NesApp {
     }
 
     /// Muestra el diálogo del sistema para elegir una ROM.
+    #[cfg(not(target_arch = "wasm32"))]
     fn open_dialog(&mut self, ctx: &egui::Context) {
         let picked = rfd::FileDialog::new()
             .set_title("Abrir ROM")
@@ -262,6 +309,12 @@ impl NesApp {
         if let Some(path) = picked {
             self.open_path(ctx, &path);
         }
+    }
+
+    /// Abre el selector de archivos del navegador; la ROM llega después por el buzón.
+    #[cfg(target_arch = "wasm32")]
+    fn open_dialog(&mut self, _ctx: &egui::Context) {
+        self.rom_inbox.pick_file();
     }
 
     /// Guarda la partida, extrae el cartucho y deja la pantalla vacía.
@@ -398,8 +451,16 @@ impl NesApp {
     /// Carga el primer archivo soltado sobre la ventana, si lo hay.
     fn handle_dropped_files(&mut self, ctx: &egui::Context) {
         let dropped = ctx.input(|input| input.raw.dropped_files.first().cloned());
-        if let Some(file) = dropped {
-            self.open_path(ctx, file.path());
+        let Some(file) = dropped else {
+            return;
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        self.open_path(ctx, file.path());
+        // En la web el archivo no tiene ruta: se lee de forma asíncrona.
+        #[cfg(target_arch = "wasm32")]
+        {
+            let _ = ctx;
+            self.rom_inbox.read_dropped(file);
         }
     }
 
@@ -475,6 +536,11 @@ impl NesApp {
 
 impl eframe::App for NesApp {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.open_audio_on_user_gesture(ctx);
+            self.receive_roms(ctx);
+        }
         self.handle_shortcuts(ctx);
         self.handle_dropped_files(ctx);
         self.run_emulation(ctx);

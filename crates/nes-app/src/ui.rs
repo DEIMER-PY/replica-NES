@@ -41,14 +41,20 @@ impl NesApp {
         egui::MenuBar::new().ui(ui, |ui| {
             ui.menu_button("Archivo", |ui| {
                 self.action_button(ui, "Abrir ROM…", Action::OpenRom, true);
+                // Las ROMs recientes son rutas de disco, que en la web no existen.
+                #[cfg(not(target_arch = "wasm32"))]
                 self.recent_menu(ui);
                 ui.separator();
                 self.action_button(ui, "Cargar demo", Action::LoadDemo, true);
                 self.action_button(ui, "Cerrar ROM", Action::CloseRom, has_rom);
                 ui.separator();
                 self.action_button(ui, "Ajustes…", Action::OpenSettings, true);
-                ui.separator();
-                self.action_button(ui, "Salir", Action::Quit, true);
+                // En la web no hay ventana que cerrar: se cierra la pestaña.
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    ui.separator();
+                    self.action_button(ui, "Salir", Action::Quit, true);
+                }
             });
 
             ui.menu_button("Emulación", |ui| {
