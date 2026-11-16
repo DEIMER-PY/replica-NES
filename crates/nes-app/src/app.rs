@@ -6,6 +6,7 @@ use eframe::egui::{self, Key, KeyboardShortcut, Modifiers};
 use nes_core::{Button, Emulator, Player};
 
 use crate::{
+    audio::AudioOutput,
     clock::FrameClock,
     config::Config,
     input::{Gamepads, PLAYERS},
@@ -18,6 +19,12 @@ pub const APP_NAME: &str = "replica-NES";
 
 /// Atajo de "Abrir ROM".
 const OPEN_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::O);
+/// Atajo de "Silenciar".
+const MUTE_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::M);
+
+/// Corrección máxima de la velocidad de emulación para mantener estable la cola de
+/// audio: ±0,5 %, imperceptible.
+const MAX_RATE_CORRECTION: f64 = 0.005;
 
 /// Estado de la aplicación.
 pub struct NesApp {
@@ -26,6 +33,10 @@ pub struct NesApp {
     clock: FrameClock,
     config: Config,
     gamepads: Gamepads,
+    /// Salida de sonido; `None` si no se pudo abrir (la app sigue, en silencio).
+    audio: Option<AudioOutput>,
+    /// Motivo por el que no hay sonido, para mostrarlo en el menú Audio.
+    audio_error: Option<String>,
     /// Si está abierta la ventana de ayuda de controles.
     show_controls: bool,
     /// Mensaje de error pendiente de mostrar al usuario.
@@ -35,12 +46,22 @@ pub struct NesApp {
 impl NesApp {
     /// Crea la app. Carga `initial_rom` si se indica; si no, la ROM de demostración.
     pub fn new(cc: &eframe::CreationContext<'_>, initial_rom: Option<PathBuf>) -> Self {
+        let (audio, audio_error) = match AudioOutput::open() {
+            Ok(audio) => (Some(audio), None),
+            Err(err) => (None, Some(err)),
+        };
+        let mut emulator = Emulator::new();
+        if let Some(audio) = &audio {
+            emulator.set_sample_rate(audio.sample_rate() as f32);
+        }
         let mut app = Self {
-            emulator: Emulator::new(),
+            emulator,
             screen: Screen::default(),
             clock: FrameClock::default(),
             config: Config::load(cc.storage),
             gamepads: Gamepads::default(),
+            audio,
+            audio_error,
             show_controls: false,
             error: None,
         };
@@ -59,6 +80,7 @@ impl NesApp {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
                 self.error = None;
                 self.screen.clear();
+                self.clear_audio();
                 if let Some(path) = &rom.path {
                     self.config.recent_roms.push(path);
                 }
@@ -105,7 +127,15 @@ impl NesApp {
     fn close_rom(&mut self, ctx: &egui::Context) {
         self.emulator.unload_rom();
         self.screen.clear();
+        self.clear_audio();
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(APP_NAME.to_owned()));
+    }
+
+    /// Descarta el sonido pendiente de la ROM anterior.
+    fn clear_audio(&self) {
+        if let Some(audio) = &self.audio {
+            audio.clear();
+        }
     }
 
     /// Carga el primer archivo soltado sobre la ventana, si lo hay.
@@ -136,7 +166,15 @@ impl NesApp {
         }
 
         let now = ctx.input(|input| input.time);
-        let frame_rate = self.emulator.region().frame_rate();
+        let mut frame_rate = self.emulator.region().frame_rate();
+        if let Some(audio) = &self.audio {
+            audio.set_volume(f32::from(self.config.volume) / 100.0, self.config.muted);
+            // El reloj de la tarjeta de sonido y el de la pantalla nunca coinciden del
+            // todo. Con la cola de audio baja se emula un poco más rápido y con la cola
+            // alta un poco más lento, para que ni se vacíe ni se acumule retraso.
+            let error = f64::from(audio.fill_error()).clamp(-1.0, 1.0);
+            frame_rate *= 1.0 - error * MAX_RATE_CORRECTION;
+        }
         let frames = self.clock.frames_due(now, frame_rate);
         self.apply_input(ctx);
 
@@ -145,6 +183,9 @@ impl NesApp {
                 self.close_rom(ctx);
                 self.error = Some(err.to_string());
                 return;
+            }
+            if let Some(audio) = &self.audio {
+                audio.push(self.emulator.audio_samples());
             }
         }
         if frames > 0 {
@@ -187,6 +228,22 @@ impl NesApp {
             });
             ui.menu_button("Ver", |ui| {
                 ui.checkbox(&mut self.config.integer_scaling, "Escalado entero");
+            });
+            ui.menu_button("Audio", |ui| {
+                if let Some(error) = &self.audio_error {
+                    ui.colored_label(ui.visuals().warn_fg_color, "Sin sonido");
+                    ui.weak(error);
+                    return;
+                }
+                let mute = egui::Checkbox::new(&mut self.config.muted, "Silenciar");
+                ui.add(mute)
+                    .on_hover_text(ctx.format_shortcut(&MUTE_SHORTCUT));
+                ui.add_enabled(
+                    !self.config.muted,
+                    egui::Slider::new(&mut self.config.volume, 0..=100)
+                        .text("Volumen")
+                        .suffix(" %"),
+                );
             });
             ui.menu_button("Ayuda", |ui| {
                 if ui.button("Controles").clicked() {
@@ -308,6 +365,11 @@ impl eframe::App for NesApp {
         #[cfg(not(target_arch = "wasm32"))]
         if ctx.input_mut(|input| input.consume_shortcut(&OPEN_SHORTCUT)) {
             self.open_dialog(ctx);
+        }
+        if !ctx.egui_wants_keyboard_input()
+            && ctx.input_mut(|input| input.consume_shortcut(&MUTE_SHORTCUT))
+        {
+            self.config.muted = !self.config.muted;
         }
         #[cfg(not(target_arch = "wasm32"))]
         self.handle_dropped_files(ctx);

@@ -20,6 +20,10 @@ pub struct Config {
     pub integer_scaling: bool,
     /// Teclas asignadas a los mandos.
     pub key_bindings: KeyBindings,
+    /// Volumen del sonido, de 0 a 100.
+    pub volume: u8,
+    /// Sonido silenciado.
+    pub muted: bool,
 }
 
 impl Default for Config {
@@ -28,6 +32,8 @@ impl Default for Config {
             recent_roms: RecentRoms::default(),
             integer_scaling: true,
             key_bindings: KeyBindings::default(),
+            volume: 80,
+            muted: false,
         }
     }
 }
