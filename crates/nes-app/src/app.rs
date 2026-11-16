@@ -36,6 +36,9 @@ const FAST_FORWARD_MAX_FRAMES: u32 = 8;
 /// audio: ±0,5 %, imperceptible.
 const MAX_RATE_CORRECTION: f64 = 0.005;
 
+/// Cada cuánto se repinta la ventana cuando no se está emulando (pausa o sin juego).
+const IDLE_REPAINT: std::time::Duration = std::time::Duration::from_millis(50);
+
 /// Segundos que permanece en pantalla un aviso.
 const TOAST_SECONDS: f64 = 2.0;
 
@@ -517,13 +520,22 @@ impl NesApp {
         let frames = self.clock.frames_due(now, frame_rate, max_frames);
         self.apply_input(ctx);
 
-        for _ in 0..frames {
-            if let Err(err) = self.emulator.run_frame() {
+        for frame in 1..=frames {
+            let result = if !self.fast_forward {
+                self.emulator.run_frame()
+            } else if frame < frames {
+                // En avance rápido solo se ve el último frame de cada repintado: los
+                // anteriores se emulan sin dibujar.
+                self.emulator.skip_frame()
+            } else {
+                // El sonido iría acelerado y desbordaría la cola: no se genera.
+                self.emulator.run_frame_silent()
+            };
+            if let Err(err) = result {
                 self.close_rom(ctx);
                 self.error = Some(err.to_string());
                 return;
             }
-            // En avance rápido el sonido iría acelerado y desbordaría la cola: se omite.
             if !self.fast_forward
                 && let Some(audio) = &self.audio
             {
@@ -547,8 +559,15 @@ impl eframe::App for NesApp {
         self.handle_shortcuts(ctx);
         self.handle_dropped_files(ctx);
         self.run_emulation(ctx);
-        // La emulación es continua: se pide repintar siempre, sin esperar a eventos.
-        ctx.request_repaint();
+        if self.has_rom() && !self.paused {
+            // La emulación es continua: se pide repintar siempre, sin esperar a eventos.
+            ctx.request_repaint();
+        } else {
+            // En pausa o sin juego no hay nada que emular. Basta con despertar de vez en
+            // cuando para atender a los mandos y retirar los avisos; así la app no ocupa
+            // la CPU ni la gráfica mientras espera.
+            ctx.request_repaint_after(IDLE_REPAINT);
+        }
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {

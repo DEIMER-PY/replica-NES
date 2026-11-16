@@ -28,6 +28,11 @@ opt-level = 3
 [profile.dev]
 debug = "line-tables-only"
 
+# Perfil de publicación: todo lo que el compilador puede dar, a costa de compilar más lento.
+# Medido con `cargo run -p nes-core --release --example bench`: LTO completo y `panic = "abort"`
+# emulan un 16 % más rápido que LTO "thin".
 [profile.release]
-lto = "thin"
-codegen-units = 1
+lto = "fat"          # optimiza a través de todos los crates como si fueran uno
+codegen-units = 1    # una sola unidad: más oportunidades de inlining
+panic = "abort"      # sin tablas de desenrollado: código más pequeño y directo
+strip = true         # ejecutable sin símbolos de depuración
