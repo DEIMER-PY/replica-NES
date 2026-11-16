@@ -5,6 +5,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Añadido
+
+- `nes-app`: reasignación de los botones del mando por jugador en **Ajustes → Controles**, también para botones que el sistema no reconoce (mandos genéricos).
+
+### Cambiado
+
+- `nes-app`: la ventana de ajustes se desplaza si no cabe en la ventana de la app.
+
 ## [0.1.0] - 2026-11-16
 
 Primera versión: emulador jugable en escritorio y en el navegador.

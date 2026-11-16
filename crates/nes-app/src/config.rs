@@ -5,7 +5,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{input::KeyBindings, rom::RecentRoms, video::Scaling};
+use crate::{
+    input::{KeyBindings, PadBindings},
+    rom::RecentRoms,
+    video::Scaling,
+};
 
 /// Clave bajo la que se guarda la configuración.
 const STORAGE_KEY: &str = "config";
@@ -22,6 +26,8 @@ pub struct Config {
     pub tv_aspect: bool,
     /// Teclas asignadas a los mandos.
     pub key_bindings: KeyBindings,
+    /// Botones de mando asignados a los mandos de la NES.
+    pub pad_bindings: PadBindings,
     /// Volumen del sonido, de 0 a 100.
     pub volume: u8,
     /// Sonido silenciado.
@@ -35,6 +41,7 @@ impl Default for Config {
             integer_scaling: true,
             tv_aspect: false,
             key_bindings: KeyBindings::default(),
+            pad_bindings: PadBindings::default(),
             volume: 80,
             muted: false,
         }

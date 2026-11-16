@@ -44,7 +44,7 @@ trunk serve
 
 - Emulación de CPU, PPU, APU y más de 30 mappers mediante `tetanes-core`.
 - Carga de ROMs por menú, arrastrar y soltar, línea de comandos y lista de recientes.
-- Teclado para dos jugadores con teclas reasignables, y mandos USB o Bluetooth.
+- Teclado para dos jugadores y mandos USB o Bluetooth, con teclas y botones reasignables.
 - Sonido con volumen y silencio.
 - Pausa, reinicio, avance rápido ×4 y save states en 4 ranuras.
 - Guardado automático de las partidas con batería.

@@ -1,7 +1,7 @@
 //! Controles: teclado y mandos convertidos en botones de la NES.
 
 use eframe::egui::{self, Key};
-use gilrs::{Axis, Button as PadButton, Gilrs};
+use gilrs::{Axis, Button as PadButton, EventType, Gilrs, ev::Code};
 use nes_core::{Button, Player};
 use serde::{Deserialize, Serialize};
 
@@ -207,47 +207,243 @@ impl KeyBindings {
     }
 }
 
+/// Botón físico de un mando.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PadInput {
+    /// Botón con posición estándar (inferior, izquierdo, Start...).
+    Button(PadButton),
+    /// Botón que el sistema no sabe situar, habitual en mandos genéricos: se
+    /// identifica por el código que envía el propio mando.
+    Code(Code),
+}
+
+impl PadInput {
+    /// Crea la entrada a partir de un evento de pulsación de `gilrs`.
+    fn from_event(button: PadButton, code: Code) -> Self {
+        if button == PadButton::Unknown {
+            Self::Code(code)
+        } else {
+            Self::Button(button)
+        }
+    }
+
+    /// Nombre para la interfaz.
+    pub fn label(self) -> String {
+        let name = match self {
+            Self::Code(code) => return format!("Código {code}"),
+            Self::Button(button) => match button {
+                PadButton::South => "Inferior (A / ✕)",
+                PadButton::East => "Derecho (B / ○)",
+                PadButton::North => "Superior (Y / △)",
+                PadButton::West => "Izquierdo (X / □)",
+                PadButton::LeftTrigger => "L1",
+                PadButton::LeftTrigger2 => "L2",
+                PadButton::RightTrigger => "R1",
+                PadButton::RightTrigger2 => "R2",
+                PadButton::Select => "Select",
+                PadButton::Start => "Start",
+                PadButton::Mode => "Home",
+                PadButton::LeftThumb => "Stick izquierdo",
+                PadButton::RightThumb => "Stick derecho",
+                PadButton::DPadUp => "Cruceta arriba",
+                PadButton::DPadDown => "Cruceta abajo",
+                PadButton::DPadLeft => "Cruceta izquierda",
+                PadButton::DPadRight => "Cruceta derecha",
+                other => return format!("{other:?}"),
+            },
+        };
+        name.to_owned()
+    }
+}
+
+/// Botón físico asignado a cada botón de la NES en un mando.
+///
+/// El stick izquierdo siempre funciona además como dirección.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PadMap {
+    pub up: PadInput,
+    pub down: PadInput,
+    pub left: PadInput,
+    pub right: PadInput,
+    pub a: PadInput,
+    pub b: PadInput,
+    pub select: PadInput,
+    pub start: PadInput,
+}
+
+impl Default for PadMap {
+    /// Cruceta, botón inferior (A en Xbox, ✕ en PlayStation) = A, izquierdo (X, □) = B.
+    fn default() -> Self {
+        Self {
+            up: PadInput::Button(PadButton::DPadUp),
+            down: PadInput::Button(PadButton::DPadDown),
+            left: PadInput::Button(PadButton::DPadLeft),
+            right: PadInput::Button(PadButton::DPadRight),
+            a: PadInput::Button(PadButton::South),
+            b: PadInput::Button(PadButton::West),
+            select: PadInput::Button(PadButton::Select),
+            start: PadInput::Button(PadButton::Start),
+        }
+    }
+}
+
+impl PadMap {
+    /// Botón físico asignado a un botón de la NES.
+    pub const fn input(&self, button: Button) -> PadInput {
+        match button {
+            Button::Up => self.up,
+            Button::Down => self.down,
+            Button::Left => self.left,
+            Button::Right => self.right,
+            Button::A => self.a,
+            Button::B => self.b,
+            Button::Select => self.select,
+            Button::Start => self.start,
+        }
+    }
+
+    const fn input_mut(&mut self, button: Button) -> &mut PadInput {
+        match button {
+            Button::Up => &mut self.up,
+            Button::Down => &mut self.down,
+            Button::Left => &mut self.left,
+            Button::Right => &mut self.right,
+            Button::A => &mut self.a,
+            Button::B => &mut self.b,
+            Button::Select => &mut self.select,
+            Button::Start => &mut self.start,
+        }
+    }
+
+    /// Qué botón de la NES tiene asignado un botón físico, si alguno.
+    pub fn find(&self, input: PadInput) -> Option<Button> {
+        Button::ALL
+            .into_iter()
+            .find(|&button| self.input(button) == input)
+    }
+
+    /// Asigna `input` a un botón de la NES.
+    ///
+    /// Si ya estaba en otro botón, los dos intercambian su asignación, igual que con
+    /// las teclas.
+    pub fn rebind(&mut self, button: Button, input: PadInput) {
+        let previous = self.input(button);
+        if let Some(other) = self.find(input) {
+            *self.input_mut(other) = previous;
+        }
+        *self.input_mut(button) = input;
+    }
+
+    /// Botones pulsados según `is_down`, que indica si un botón físico está pulsado.
+    fn state(&self, is_down: impl Fn(PadInput) -> bool) -> PadState {
+        PadState {
+            up: is_down(self.up),
+            down: is_down(self.down),
+            left: is_down(self.left),
+            right: is_down(self.right),
+            a: is_down(self.a),
+            b: is_down(self.b),
+            select: is_down(self.select),
+            start: is_down(self.start),
+        }
+    }
+}
+
+/// Botones de mando de los dos jugadores.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PadBindings {
+    pub player_one: PadMap,
+    pub player_two: PadMap,
+}
+
+impl PadBindings {
+    /// Botones de un jugador.
+    pub const fn map(&self, player: Player) -> &PadMap {
+        match player {
+            Player::One => &self.player_one,
+            Player::Two => &self.player_two,
+        }
+    }
+
+    /// Botones de un jugador, para cambiarlos.
+    pub const fn map_mut(&mut self, player: Player) -> &mut PadMap {
+        match player {
+            Player::One => &mut self.player_one,
+            Player::Two => &mut self.player_two,
+        }
+    }
+}
+
 /// Mandos conectados (USB, Bluetooth).
 ///
 /// El primer mando conectado controla al jugador 1 y el segundo al jugador 2.
 pub struct Gamepads {
     /// `None` si el sistema no ofrece acceso a mandos; la app sigue con teclado.
     gilrs: Option<Gilrs>,
+    /// Botones pulsados desde la última llamada a [`Gamepads::poll`].
+    pressed: Vec<(Player, PadInput)>,
 }
 
 impl Default for Gamepads {
     fn default() -> Self {
         Self {
             gilrs: Gilrs::new().ok(),
+            pressed: Vec::new(),
         }
     }
 }
 
 impl Gamepads {
-    /// Lee los mandos. Devuelve el estado de los dos jugadores.
-    pub fn read(&mut self) -> [PadState; 2] {
-        let mut pads = [PadState::default(); 2];
+    /// Procesa los eventos pendientes de los mandos. Se llama una vez por repintado,
+    /// antes de [`Gamepads::read`] y [`Gamepads::first_pressed`].
+    pub fn poll(&mut self) {
+        self.pressed.clear();
         let Some(gilrs) = &mut self.gilrs else {
+            return;
+        };
+        // Consumir los eventos es además lo que actualiza el estado de cada mando.
+        while let Some(event) = gilrs.next_event() {
+            let EventType::ButtonPressed(button, code) = event.event else {
+                continue;
+            };
+            let index = gilrs.gamepads().position(|(id, _)| id == event.id);
+            if let Some(&player) = index.and_then(|index| PLAYERS.get(index)) {
+                self.pressed
+                    .push((player, PadInput::from_event(button, code)));
+            }
+        }
+    }
+
+    /// Primer botón que `player` ha pulsado desde el último [`Gamepads::poll`].
+    pub fn first_pressed(&self, player: Player) -> Option<PadInput> {
+        self.pressed
+            .iter()
+            .find(|(owner, _)| *owner == player)
+            .map(|(_, input)| *input)
+    }
+
+    /// Estado de los dos jugadores según sus botones asignados.
+    pub fn read(&self, bindings: &PadBindings) -> [PadState; 2] {
+        let mut pads = [PadState::default(); 2];
+        let Some(gilrs) = &self.gilrs else {
             return pads;
         };
-        // Hay que consumir los eventos para que gilrs actualice el estado de cada mando.
-        while gilrs.next_event().is_some() {}
-
-        for (pad, (_, gamepad)) in pads.iter_mut().zip(gilrs.gamepads()) {
+        for ((pad, player), (_, gamepad)) in pads.iter_mut().zip(PLAYERS).zip(gilrs.gamepads()) {
             let (stick_left, stick_right) = stick_direction(gamepad.value(Axis::LeftStickX));
             // El eje Y de gilrs es positivo hacia arriba.
             let (stick_down, stick_up) = stick_direction(gamepad.value(Axis::LeftStickY));
-            *pad = PadState {
-                up: gamepad.is_pressed(PadButton::DPadUp) || stick_up,
-                down: gamepad.is_pressed(PadButton::DPadDown) || stick_down,
-                left: gamepad.is_pressed(PadButton::DPadLeft) || stick_left,
-                right: gamepad.is_pressed(PadButton::DPadRight) || stick_right,
-                // Botón inferior (A en Xbox, ✕ en PlayStation) = A; izquierdo (X, □) = B.
-                a: gamepad.is_pressed(PadButton::South),
-                b: gamepad.is_pressed(PadButton::West),
-                select: gamepad.is_pressed(PadButton::Select),
-                start: gamepad.is_pressed(PadButton::Start),
+            let stick = PadState {
+                up: stick_up,
+                down: stick_down,
+                left: stick_left,
+                right: stick_right,
+                ..PadState::default()
             };
+            let buttons = bindings.map(player).state(|input| match input {
+                PadInput::Button(button) => gamepad.is_pressed(button),
+                PadInput::Code(code) => gamepad.state().is_pressed(code),
+            });
+            *pad = buttons.merge(stick);
         }
         pads
     }
@@ -349,6 +545,88 @@ mod tests {
         assert_eq!(stick_direction(0.3), (false, false));
         assert_eq!(stick_direction(0.9), (false, true));
         assert_eq!(stick_direction(-0.9), (true, false));
+    }
+
+    #[test]
+    fn default_pad_buttons_do_not_collide() {
+        let map = PadMap::default();
+        for button in Button::ALL {
+            assert_eq!(map.find(map.input(button)), Some(button), "{button:?}");
+        }
+    }
+
+    #[test]
+    fn pad_map_reads_pressed_buttons() {
+        let south = PadInput::Button(PadButton::South);
+        let state = PadMap::default().state(|input| input == south);
+        assert_eq!(
+            state,
+            PadState {
+                a: true,
+                ..PadState::default()
+            }
+        );
+    }
+
+    #[test]
+    fn pad_rebind_assigns_a_free_button() {
+        let mut map = PadMap::default();
+        let east = PadInput::Button(PadButton::East);
+        map.rebind(Button::B, east);
+        assert_eq!(map.find(east), Some(Button::B));
+        assert_eq!(map.find(PadInput::Button(PadButton::West)), None);
+    }
+
+    #[test]
+    fn pad_rebind_swaps_with_the_button_that_had_it() {
+        let mut map = PadMap::default();
+        // El botón inferior es A; al dárselo a B, A se queda con el que tenía B.
+        map.rebind(Button::B, PadInput::Button(PadButton::South));
+        assert_eq!(map.b, PadInput::Button(PadButton::South));
+        assert_eq!(map.a, PadInput::Button(PadButton::West));
+    }
+
+    #[test]
+    fn pad_buttons_have_readable_labels() {
+        assert_eq!(
+            PadInput::Button(PadButton::South).label(),
+            "Inferior (A / ✕)"
+        );
+        assert_eq!(
+            PadInput::from_event(PadButton::Start, sample_code()),
+            PadInput::Button(PadButton::Start)
+        );
+    }
+
+    #[test]
+    fn unknown_buttons_are_identified_by_code() {
+        let code = sample_code();
+        let input = PadInput::from_event(PadButton::Unknown, code);
+        assert_eq!(input, PadInput::Code(code));
+        assert!(input.label().starts_with("Código "));
+
+        let mut map = PadMap::default();
+        map.rebind(Button::A, input);
+        assert_eq!(map.find(input), Some(Button::A));
+    }
+
+    #[test]
+    fn pad_bindings_round_trip_through_ron() {
+        let mut bindings = PadBindings::default();
+        let map = bindings.map_mut(Player::Two);
+        map.rebind(Button::A, PadInput::Button(PadButton::East));
+        map.rebind(Button::B, PadInput::Code(sample_code()));
+        let text = ron::to_string(&bindings).unwrap();
+        assert_eq!(ron::from_str::<PadBindings>(&text).unwrap(), bindings);
+    }
+
+    /// Un código de botón cualquiera, obtenido de un evento serializado: `gilrs` no
+    /// permite construirlos directamente.
+    fn sample_code() -> Code {
+        let text = ron::to_string(&gilrs::ev::Button::South.to_nec()).unwrap();
+        ron::from_str::<Option<Code>>(&text)
+            .unwrap()
+            .expect("el botón inferior tiene código nativo")
     }
 
     #[test]

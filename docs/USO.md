@@ -1,14 +1,16 @@
 # Uso
 
-> La app está en construcción. Este documento se completa con cada funcionalidad.
-
 ## Ejecutar
+
+Con el ejecutable (`nes-app.exe` en Windows): doble clic. No necesita instalación ni terminal.
+
+Desde el código fuente:
 
 ```sh
 cargo run -p nes-app --release
 ```
 
-Sin argumentos se abre con la **ROM de demostración** incluida en el proyecto: una pantalla azul que confirma que la emulación y el vídeo funcionan.
+Sin argumentos se abre con la **ROM de demostración** incluida en el proyecto: una pantalla azul que pasa a rojo, con un tono, mientras se mantiene el botón A (`X`). Confirma que la emulación, el vídeo, los controles y el sonido funcionan.
 
 ## Cargar una ROM
 
@@ -61,6 +63,15 @@ Los mandos USB o Bluetooth se detectan solos, también si se conectan con la app
 | A | Botón inferior (A en Xbox, ✕ en PlayStation) |
 | B | Botón izquierdo (X en Xbox, □ en PlayStation) |
 | Select / Start | Select / Start |
+
+Son los botones por defecto. Se cambian en **Archivo → Ajustes… → Controles**, en la tabla **Mandos**: se hace clic en el botón de la tabla y se pulsa el nuevo en el mando de ese jugador. `Escape` cancela.
+
+- Cada jugador tiene su propia tabla, y solo se puede editar con su mando conectado.
+- Si el botón nuevo ya estaba asignado, los dos intercambian su sitio.
+- El stick izquierdo siempre funciona como dirección, además de los botones asignados.
+- **Restaurar botones por defecto** vuelve a la tabla de arriba.
+
+En los **mandos genéricos** el sistema a veces no sabe qué botón es cada uno, y pueden salir cambiados de sitio. Se arregla reasignándolos; los botones sin posición conocida aparecen en la tabla como `Código …`.
 
 Con la ROM de demostración se puede comprobar: al mantener el botón A del jugador 1 la pantalla pasa de azul a rojo.
 
@@ -117,7 +128,7 @@ La imagen se centra y se escala al redimensionar la ventana. Las opciones están
 
 ## Configuración
 
-La lista de recientes, las teclas y las opciones de imagen y sonido se guardan automáticamente y se recuperan al abrir la app. En Windows el archivo está en `%APPDATA%\replica-NES\data\app.ron`.
+La lista de recientes, las teclas, los botones de mando y las opciones de imagen y sonido se guardan automáticamente y se recuperan al abrir la app. En Windows el archivo está en `%APPDATA%\replica-NES\data\app.ron`.
 
 ## Solución de problemas
 

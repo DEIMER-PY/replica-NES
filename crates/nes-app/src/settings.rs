@@ -5,7 +5,7 @@ use nes_core::{Button, Player};
 
 use crate::{
     app::{Action, NesApp},
-    input::{KeyBindings, PLAYERS},
+    input::{KeyBindings, PLAYERS, PadBindings},
 };
 
 /// Pestañas de la ventana de ajustes.
@@ -22,14 +22,23 @@ pub enum Tab {
 pub struct SettingsWindow {
     pub open: bool,
     pub tab: Tab,
-    /// Botón que espera a que el usuario pulse su nueva tecla.
-    capturing: Option<(Player, Button)>,
+    /// Botón que espera a que el usuario pulse su nueva tecla o botón de mando.
+    capturing: Option<Target>,
     /// Aviso sobre el último intento de asignar una tecla.
     message: Option<String>,
 }
 
+/// Qué se está reasignando.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Target {
+    /// La tecla de un botón de la NES.
+    Key(Player, Button),
+    /// El botón de mando de un botón de la NES.
+    Pad(Player, Button),
+}
+
 impl SettingsWindow {
-    /// Si se está esperando una tecla para asignarla a un botón.
+    /// Si se está esperando una tecla o un botón de mando para asignarlo.
     ///
     /// Mientras tanto, la app no debe tratar las pulsaciones como atajos ni como
     /// botones del juego.
@@ -71,12 +80,15 @@ impl NesApp {
     /// Dibuja la ventana de ajustes, si está abierta.
     pub(crate) fn settings_window(&mut self, ctx: &egui::Context) {
         self.capture_pressed_key(ctx);
+        self.capture_pressed_pad_button();
 
         let mut open = self.settings.open;
         egui::Window::new("Ajustes")
             .open(&mut open)
             .collapsible(false)
             .resizable(false)
+            // Si la ventana de la app es baja, el contenido se desplaza en vez de cortarse.
+            .vscroll(true)
             .default_width(340.0)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
@@ -120,6 +132,16 @@ impl NesApp {
         let Some(key) = pressed else {
             return;
         };
+        let target = match target {
+            Target::Key(player, button) => (player, button),
+            Target::Pad(..) => {
+                // Al esperar un botón de mando, el teclado solo sirve para cancelar.
+                if key == Key::Escape {
+                    self.settings.capturing = None;
+                }
+                return;
+            }
+        };
         match capture_key(&mut self.config.key_bindings, target, key) {
             Capture::Bound | Capture::Cancelled => {
                 self.settings.capturing = None;
@@ -134,8 +156,23 @@ impl NesApp {
         }
     }
 
+    /// Si se está reasignando un botón de mando y ese jugador ha pulsado uno, lo aplica.
+    fn capture_pressed_pad_button(&mut self) {
+        let Some(Target::Pad(player, button)) = self.settings.capturing else {
+            return;
+        };
+        if let Some(input) = self.gamepads.first_pressed(player) {
+            self.config
+                .pad_bindings
+                .map_mut(player)
+                .rebind(button, input);
+            self.settings.capturing = None;
+        }
+    }
+
     fn controls_tab(&mut self, ui: &mut egui::Ui) {
-        ui.label("Pulsa una tecla de la tabla para cambiarla.");
+        ui.strong("Teclado");
+        ui.label("Haz clic en una tecla de la tabla para cambiarla.");
         ui.add_space(4.0);
 
         egui::Grid::new("key-bindings")
@@ -151,14 +188,15 @@ impl NesApp {
                 for button in Button::ALL {
                     ui.label(button_label(button));
                     for player in PLAYERS {
-                        let capturing = self.settings.capturing == Some((player, button));
+                        let target = Target::Key(player, button);
+                        let capturing = self.settings.capturing == Some(target);
                         let text = if capturing {
                             "Pulsa una tecla…"
                         } else {
                             self.config.key_bindings.map(player).key(button).name()
                         };
                         if ui.selectable_label(capturing, text).clicked() {
-                            self.settings.capturing = (!capturing).then_some((player, button));
+                            self.settings.capturing = (!capturing).then_some(target);
                             self.settings.message = None;
                         }
                     }
@@ -166,9 +204,6 @@ impl NesApp {
                 }
             });
 
-        if self.settings.is_capturing() {
-            ui.weak("Escape cancela.");
-        }
         if let Some(message) = &self.settings.message {
             ui.colored_label(ui.visuals().warn_fg_color, message);
         }
@@ -188,6 +223,16 @@ impl NesApp {
         }
 
         ui.separator();
+        self.gamepad_section(ui);
+
+        if self.settings.is_capturing() {
+            ui.add_space(4.0);
+            ui.weak("Escape cancela.");
+        }
+    }
+
+    /// Mandos conectados y tabla para reasignar sus botones.
+    fn gamepad_section(&mut self, ui: &mut egui::Ui) {
         ui.strong("Mandos");
         let names = self.gamepads.names();
         if names.is_empty() {
@@ -195,6 +240,57 @@ impl NesApp {
         }
         for (player, name) in PLAYERS.iter().zip(&names) {
             ui.label(format!("{}: {name}", player_label(*player)));
+        }
+        ui.label("Haz clic en un botón de la tabla y pulsa el nuevo en el mando.");
+        ui.weak("El stick izquierdo siempre mueve, además de los botones de dirección.");
+        ui.add_space(4.0);
+
+        egui::Grid::new("pad-bindings")
+            .striped(true)
+            .min_col_width(90.0)
+            .show(ui, |ui| {
+                ui.strong("Botón");
+                for player in PLAYERS {
+                    ui.strong(player_label(player));
+                }
+                ui.end_row();
+
+                for button in Button::ALL {
+                    ui.label(button_label(button));
+                    for (index, player) in PLAYERS.into_iter().enumerate() {
+                        let target = Target::Pad(player, button);
+                        let capturing = self.settings.capturing == Some(target);
+                        let text = if capturing {
+                            "Pulsa un botón…".to_owned()
+                        } else {
+                            self.config.pad_bindings.map(player).input(button).label()
+                        };
+                        // Sin mando no hay con qué pulsar el botón nuevo.
+                        let connected = index < names.len();
+                        let cell = ui.add_enabled(
+                            connected || capturing,
+                            egui::Button::selectable(capturing, text),
+                        );
+                        if cell.clicked() {
+                            self.settings.capturing = (!capturing).then_some(target);
+                            self.settings.message = None;
+                        }
+                    }
+                    ui.end_row();
+                }
+            });
+
+        ui.add_space(4.0);
+        let is_default = self.config.pad_bindings == PadBindings::default();
+        if ui
+            .add_enabled(
+                !is_default,
+                egui::Button::new("Restaurar botones por defecto"),
+            )
+            .clicked()
+        {
+            self.config.pad_bindings = PadBindings::default();
+            self.settings.capturing = None;
         }
     }
 

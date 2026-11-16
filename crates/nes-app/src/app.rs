@@ -466,13 +466,15 @@ impl NesApp {
 
     /// Pasa al emulador el estado de teclado y mandos.
     fn apply_input(&mut self, ctx: &egui::Context) {
-        let keyboard = if self.settings.is_capturing() {
-            // La tecla que se está asignando no debe llegar al juego.
+        // La tecla o el botón que se está asignando no debe llegar al juego.
+        let (keyboard, gamepads) = if self.settings.is_capturing() {
             Default::default()
         } else {
-            self.config.key_bindings.read(ctx)
+            (
+                self.config.key_bindings.read(ctx),
+                self.gamepads.read(&self.config.pad_bindings),
+            )
         };
-        let gamepads = self.gamepads.read();
         for (index, player) in PLAYERS.into_iter().enumerate() {
             let pad = keyboard[index].merge(gamepads[index]);
             for button in Button::ALL {
@@ -541,6 +543,7 @@ impl eframe::App for NesApp {
             self.open_audio_on_user_gesture(ctx);
             self.receive_roms(ctx);
         }
+        self.gamepads.poll();
         self.handle_shortcuts(ctx);
         self.handle_dropped_files(ctx);
         self.run_emulation(ctx);
