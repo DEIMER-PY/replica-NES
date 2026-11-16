@@ -3,9 +3,15 @@
 use std::path::{Path, PathBuf};
 
 use eframe::egui::{self, Key, KeyboardShortcut, Modifiers};
-use nes_core::Emulator;
+use nes_core::{Button, Emulator, Player};
 
-use crate::{clock::FrameClock, config::Config, rom::RomFile, video::Screen};
+use crate::{
+    clock::FrameClock,
+    config::Config,
+    input::{Gamepads, PLAYERS},
+    rom::RomFile,
+    video::Screen,
+};
 
 /// Nombre de la app, que encabeza el título de la ventana.
 pub const APP_NAME: &str = "replica-NES";
@@ -19,6 +25,9 @@ pub struct NesApp {
     screen: Screen,
     clock: FrameClock,
     config: Config,
+    gamepads: Gamepads,
+    /// Si está abierta la ventana de ayuda de controles.
+    show_controls: bool,
     /// Mensaje de error pendiente de mostrar al usuario.
     error: Option<String>,
 }
@@ -31,6 +40,8 @@ impl NesApp {
             screen: Screen::default(),
             clock: FrameClock::default(),
             config: Config::load(cc.storage),
+            gamepads: Gamepads::default(),
+            show_controls: false,
             error: None,
         };
         match initial_rom {
@@ -106,6 +117,18 @@ impl NesApp {
         }
     }
 
+    /// Pasa al emulador el estado de teclado y mandos.
+    fn apply_input(&mut self, ctx: &egui::Context) {
+        let keyboard = self.config.key_bindings.read(ctx);
+        let gamepads = self.gamepads.read();
+        for (index, player) in PLAYERS.into_iter().enumerate() {
+            let pad = keyboard[index].merge(gamepads[index]);
+            for button in Button::ALL {
+                self.emulator.set_button(player, button, pad.get(button));
+            }
+        }
+    }
+
     /// Emula los frames que tocan desde el repintado anterior.
     fn run_emulation(&mut self, ctx: &egui::Context) {
         if self.emulator.rom().is_none() {
@@ -115,6 +138,7 @@ impl NesApp {
         let now = ctx.input(|input| input.time);
         let frame_rate = self.emulator.region().frame_rate();
         let frames = self.clock.frames_due(now, frame_rate);
+        self.apply_input(ctx);
 
         for _ in 0..frames {
             if let Err(err) = self.emulator.run_frame() {
@@ -164,6 +188,11 @@ impl NesApp {
             ui.menu_button("Ver", |ui| {
                 ui.checkbox(&mut self.config.integer_scaling, "Escalado entero");
             });
+            ui.menu_button("Ayuda", |ui| {
+                if ui.button("Controles").clicked() {
+                    self.show_controls = true;
+                }
+            });
         });
     }
 
@@ -196,6 +225,40 @@ impl NesApp {
         });
     }
 
+    /// Ventana de ayuda con las teclas de cada jugador y los mandos conectados.
+    fn controls_window(&mut self, ctx: &egui::Context) {
+        let mut open = self.show_controls;
+        egui::Window::new("Controles")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                egui::Grid::new("controls").striped(true).show(ui, |ui| {
+                    ui.strong("Botón");
+                    ui.strong("Jugador 1");
+                    ui.strong("Jugador 2");
+                    ui.end_row();
+                    for button in Button::ALL {
+                        ui.label(button_label(button));
+                        for player in PLAYERS {
+                            let key = self.config.key_bindings.map(player).key(button);
+                            ui.monospace(key.symbol_or_name());
+                        }
+                        ui.end_row();
+                    }
+                });
+                ui.separator();
+                let names = self.gamepads.names();
+                if names.is_empty() {
+                    ui.weak("Ningún mando conectado.");
+                }
+                for (player, name) in PLAYERS.iter().zip(&names) {
+                    ui.label(format!("{}: {name}", player_label(*player)));
+                }
+            });
+        self.show_controls = open;
+    }
+
     /// Ventana con el último error, hasta que el usuario la cierra.
     fn error_window(&mut self, ctx: &egui::Context) {
         let Some(message) = &self.error else {
@@ -215,6 +278,28 @@ impl NesApp {
         if dismissed {
             self.error = None;
         }
+    }
+}
+
+/// Nombre de un botón para la interfaz.
+const fn button_label(button: Button) -> &'static str {
+    match button {
+        Button::Up => "Arriba",
+        Button::Down => "Abajo",
+        Button::Left => "Izquierda",
+        Button::Right => "Derecha",
+        Button::A => "A",
+        Button::B => "B",
+        Button::Select => "Select",
+        Button::Start => "Start",
+    }
+}
+
+/// Nombre de un jugador para la interfaz.
+const fn player_label(player: Player) -> &'static str {
+    match player {
+        Player::One => "Jugador 1",
+        Player::Two => "Jugador 2",
     }
 }
 
@@ -252,6 +337,7 @@ impl eframe::App for NesApp {
                 }
             });
 
+        self.controls_window(ui.ctx());
         self.error_window(ui.ctx());
     }
 
