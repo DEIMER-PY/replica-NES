@@ -23,7 +23,9 @@ La emulación la aporta [`tetanes-core`](https://crates.io/crates/tetanes-core),
 
 ## Inicio rápido
 
-Requisitos: [Rust](https://rustup.rs) estable (ver `rust-toolchain.toml`) y, en Windows, las C++ Build Tools de Visual Studio.
+**Con el ejecutable:** descarga el de tu sistema desde [Releases](https://github.com/DEIMER-PY/replica-NES/releases) y ábrelo. No necesita instalación.
+
+**Desde el código fuente.** Requisitos: [Rust](https://rustup.rs) estable (ver `rust-toolchain.toml`) y, en Windows, las C++ Build Tools de Visual Studio.
 
 ```sh
 git clone https://github.com/DEIMER-PY/replica-NES.git
