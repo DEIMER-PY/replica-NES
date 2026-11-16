@@ -92,6 +92,8 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 | `app.rs` | `NesApp`: estado de la app; implementa `eframe::App` |
 | `clock.rs` | `FrameClock`: cuántos frames de la NES tocan en cada repintado |
 | `video.rs` | `Screen` (textura del frame) y `fit_rect` (colocación y escalado) |
+| `rom.rs` | `RomFile` (lectura de una ROM del disco) y `RecentRoms` (lista de recientes) |
+| `config.rs` | `Config`: ajustes persistentes, guardados con el almacenamiento de `eframe` |
 
 ### Ciclo de la app
 
@@ -101,6 +103,23 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 2. **`ui`** — dibuja. `Screen::show` pinta la textura centrada sobre fondo negro.
 
 Al final de `logic` se pide siempre otro repintado (`request_repaint`), porque la emulación es continua y no depende de eventos del usuario.
+
+### Carga de ROMs
+
+Todas las vías (menú, `Ctrl+O`, arrastrar y soltar, argumento de línea de comandos, recientes) acaban en el mismo camino:
+
+```
+ruta ──► RomFile::read ──► NesApp::load_rom ──► Emulator::load_rom
+              │                    │
+              └── error de E/S     └── error de formato o mapper
+                         └──────────────┴──► ventana de error
+```
+
+`nes-core` solo recibe bytes; leer el disco es responsabilidad de la app. Una ROM que carga bien se anota en recientes; una ruta que ya no existe se elimina de la lista.
+
+### Configuración persistente
+
+`Config` se serializa con `serde` y se guarda mediante `eframe::Storage` (un archivo RON en la carpeta de datos del usuario; `localStorage` en la web). `eframe` llama a `App::save` periódicamente y al cerrar. Todos los campos tienen valor por defecto, así que una configuración antigua sigue cargando cuando se añaden ajustes nuevos.
 
 ### Ritmo de la emulación
 

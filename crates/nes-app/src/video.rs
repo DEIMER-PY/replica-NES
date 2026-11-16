@@ -25,6 +25,11 @@ impl Screen {
         }
     }
 
+    /// Descarta la imagen: la pantalla queda en negro hasta el próximo frame.
+    pub fn clear(&mut self) {
+        self.texture = None;
+    }
+
     /// Dibuja la imagen centrada en el espacio disponible de `ui`.
     pub fn show(&self, ui: &mut egui::Ui, integer_scaling: bool) {
         let available = ui.available_rect_before_wrap();
