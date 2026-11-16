@@ -13,7 +13,7 @@ use crate::{
     clock::{FrameClock, MAX_FRAMES_PER_UPDATE},
     config::Config,
     input::{Gamepads, PLAYERS},
-    rom::RomFile,
+    rom::{LibraryEntry, RomFile, scan_library},
     settings::SettingsWindow,
     storage::{SaveKind, SaveStore},
     video::Screen,
@@ -46,6 +46,10 @@ const TOAST_SECONDS: f64 = 2.0;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     OpenRom,
+    /// Elegir la carpeta de juegos de la biblioteca.
+    ChooseRomDir,
+    /// Volver a leer la carpeta de juegos.
+    RefreshLibrary,
     LoadDemo,
     CloseRom,
     Quit,
@@ -125,6 +129,8 @@ pub struct NesApp {
     /// ROMs que el navegador termina de leer en segundo plano.
     #[cfg(target_arch = "wasm32")]
     rom_inbox: crate::web::RomInbox,
+    /// Juegos de la carpeta elegida, que lista la pantalla de inicio.
+    pub(crate) library: Vec<LibraryEntry>,
     saves: SaveStore,
     /// Identificador de la ROM cargada, con el que se nombran sus archivos guardados.
     rom_id: Option<String>,
@@ -144,7 +150,7 @@ pub struct NesApp {
 }
 
 impl NesApp {
-    /// Crea la app. Carga `initial_rom` si se indica; si no, la ROM de demostración.
+    /// Crea la app. Carga `initial_rom` si se indica; si no, muestra la pantalla de inicio.
     pub fn new(cc: &eframe::CreationContext<'_>, initial_rom: Option<PathBuf>) -> Self {
         let mut app = Self {
             emulator: Emulator::new(),
@@ -157,6 +163,7 @@ impl NesApp {
             audio_pending: true,
             #[cfg(target_arch = "wasm32")]
             rom_inbox: crate::web::RomInbox::default(),
+            library: Vec::new(),
             saves: SaveStore::for_app(APP_NAME),
             rom_id: None,
             battery_on_disk: None,
@@ -171,9 +178,10 @@ impl NesApp {
         // primera pulsación del usuario: los navegadores bloquean el audio hasta entonces.
         #[cfg(not(target_arch = "wasm32"))]
         app.open_audio();
-        match initial_rom {
-            Some(path) => app.open_path(&cc.egui_ctx, &path),
-            None => app.perform(&cc.egui_ctx, Action::LoadDemo),
+        app.refresh_library();
+        // Sin ROM en la línea de comandos se arranca en la pantalla de inicio.
+        if let Some(path) = initial_rom {
+            app.open_path(&cc.egui_ctx, &path);
         }
         app
     }
@@ -182,6 +190,8 @@ impl NesApp {
     pub fn perform(&mut self, ctx: &egui::Context, action: Action) {
         match action {
             Action::OpenRom => self.open_dialog(ctx),
+            Action::ChooseRomDir => self.choose_rom_dir(),
+            Action::RefreshLibrary => self.refresh_library(),
             Action::LoadDemo => {
                 let demo = RomFile::from_bytes("demo.nes", nes_core::demo_rom());
                 self.load_rom(ctx, &demo);
@@ -320,7 +330,34 @@ impl NesApp {
         self.rom_inbox.pick_file();
     }
 
-    /// Guarda la partida, extrae el cartucho y deja la pantalla vacía.
+    /// Muestra el diálogo del sistema para elegir la carpeta de juegos.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn choose_rom_dir(&mut self) {
+        let mut dialog = rfd::FileDialog::new().set_title("Carpeta de juegos");
+        if let Some(current) = &self.config.rom_dir {
+            dialog = dialog.set_directory(current);
+        }
+        if let Some(dir) = dialog.pick_folder() {
+            self.config.rom_dir = Some(dir);
+            self.refresh_library();
+        }
+    }
+
+    /// En la web no hay carpetas: el navegador solo entrega archivos sueltos.
+    #[cfg(target_arch = "wasm32")]
+    fn choose_rom_dir(&mut self) {}
+
+    /// Vuelve a leer la carpeta de juegos.
+    fn refresh_library(&mut self) {
+        self.library = self
+            .config
+            .rom_dir
+            .as_deref()
+            .map(scan_library)
+            .unwrap_or_default();
+    }
+
+    /// Guarda la partida, extrae el cartucho y vuelve a la pantalla de inicio.
     fn close_rom(&mut self, ctx: &egui::Context) {
         self.flush_battery();
         self.emulator.unload_rom();
