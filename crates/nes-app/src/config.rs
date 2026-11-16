@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::rom::RecentRoms;
+use crate::{input::KeyBindings, rom::RecentRoms};
 
 /// Clave bajo la que se guarda la configuración.
 const STORAGE_KEY: &str = "config";
@@ -18,6 +18,8 @@ pub struct Config {
     pub recent_roms: RecentRoms,
     /// Escalar la imagen solo en múltiplos enteros.
     pub integer_scaling: bool,
+    /// Teclas asignadas a los mandos.
+    pub key_bindings: KeyBindings,
 }
 
 impl Default for Config {
@@ -25,6 +27,7 @@ impl Default for Config {
         Self {
             recent_roms: RecentRoms::default(),
             integer_scaling: true,
+            key_bindings: KeyBindings::default(),
         }
     }
 }
