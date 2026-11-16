@@ -1,0 +1,41 @@
+[package]
+name = "nes-app"
+description = "Aplicación de escritorio y web de replica-NES"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+gilrs = "0.11"
+nes-core = { path = "../nes-core" }
+rfd = "0.18"
+serde = { version = "1", features = ["derive"] }
+
+# Escritorio: render con wgpu.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+cpal = "0.18"
+eframe = { version = "0.37", features = ["persistence"] }
+
+# Web: render con WebGL (glow), que funciona en todos los navegadores.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+base64 = "0.23"
+cpal = { version = "0.18", features = ["wasm-bindgen"] }
+eframe = { version = "0.37", default-features = false, features = [
+    "default_fonts",
+    "glow",
+    "persistence",
+] }
+# Dependencia indirecta (números aleatorios del core): en el navegador necesita
+# que se active su soporte de JavaScript.
+getrandom = { version = "0.4", features = ["wasm_js"] }
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["Document", "Element", "HtmlCanvasElement", "Storage", "Window"] }
+
+[dev-dependencies]
+ron = "0.12"
