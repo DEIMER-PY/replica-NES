@@ -47,6 +47,7 @@ trunk serve
 ## Funcionalidades
 
 - Emulación de CPU, PPU, APU y más de 30 mappers mediante `tetanes-core`.
+- Pantalla de inicio con biblioteca de juegos: elige tu carpeta de ROMs y ábrelas con un clic.
 - Carga de ROMs por menú, arrastrar y soltar, línea de comandos y lista de recientes.
 - Teclado para dos jugadores y mandos USB o Bluetooth, con teclas y botones reasignables.
 - Sonido con volumen y silencio.

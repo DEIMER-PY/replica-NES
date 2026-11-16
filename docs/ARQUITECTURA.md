@@ -93,9 +93,10 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 | `main.rs` | Punto de entrada nativo: crea la ventana y arranca `NesApp` |
 | `app.rs` | `NesApp` (estado y lógica), `Action` (órdenes del usuario) y sus atajos; implementa `eframe::App` |
 | `ui.rs` | Interfaz: barra de menús, textos sobre la imagen y ventanas |
+| `home.rs` | Pantalla de inicio (sin juego cargado): botones para abrir, biblioteca, recientes y aviso al arrastrar un archivo |
 | `clock.rs` | `FrameClock`: cuántos frames de la NES tocan en cada repintado |
 | `video.rs` | `Screen` (textura del frame) y `fit_rect` (colocación y escalado) |
-| `rom.rs` | `RomFile` (lectura de una ROM del disco) y `RecentRoms` (lista de recientes) |
+| `rom.rs` | `RomFile` (lectura de una ROM del disco), `RecentRoms` (lista de recientes) y `scan_library` (juegos de una carpeta) |
 | `config.rs` | `Config`: ajustes persistentes, guardados con el almacenamiento de `eframe` |
 | `audio.rs` | `AudioOutput`: salida de sonido con `cpal` y cola de muestras |
 | `settings.rs` | Ventana de ajustes (controles, vídeo, audio) y reasignación de teclas |

@@ -10,18 +10,38 @@ Desde el código fuente:
 cargo run -p nes-app --release
 ```
 
-Sin argumentos se abre con la **ROM de demostración** incluida en el proyecto: una pantalla azul que pasa a rojo, con un tono, mientras se mantiene el botón A (`X`). Confirma que la emulación, el vídeo, los controles y el sonido funcionan.
+## Pantalla de inicio
+
+Al abrir la app sin juego aparece la pantalla de inicio, con todo lo necesario para empezar:
+
+| Elemento | Qué hace |
+|---|---|
+| **Abrir ROM…** | Abre el diálogo del sistema para elegir un archivo `.nes` |
+| **Carpeta de juegos…** | Elige la carpeta donde guardas tus juegos; se recuerda entre sesiones |
+| **Probar la demo** | Carga la ROM de demostración incluida en el proyecto |
+| **Biblioteca** | Lista los archivos `.nes` de la carpeta de juegos y de sus subcarpetas (hasta 3 niveles), por orden alfabético. Un clic abre el juego |
+| **Actualizar** | Vuelve a leer la carpeta, por si has añadido juegos con la app abierta |
+| **Recientes** | Las últimas 8 ROMs abiertas, también con un clic |
+
+Además, se puede arrastrar un archivo `.nes` a la ventana en cualquier momento: mientras se arrastra, la ventana indica «Suelta el archivo para abrirlo».
+
+**Archivo → Cerrar ROM e ir al inicio** vuelve a esta pantalla.
+
+No hay pantalla de carga porque no hay espera: un juego de NES ocupa entre 24 KB y 1 MB y se carga en menos de un milisegundo.
+
+La **ROM de demostración** es una pantalla azul que pasa a rojo, con un tono, mientras se mantiene el botón A (`X`). Confirma que la emulación, el vídeo, los controles y el sonido funcionan.
 
 ## Cargar una ROM
 
 | Forma | Cómo |
 |---|---|
+| Pantalla de inicio | Botón **Abrir ROM…** o un clic en un juego de la biblioteca o de recientes |
 | Menú | **Archivo → Abrir ROM…** (`Ctrl+O`) |
 | Arrastrar y soltar | Suelta un archivo `.nes` sobre la ventana |
 | Línea de comandos | `cargo run -p nes-app --release -- ruta/al/juego.nes` |
 | Recientes | **Archivo → Recientes** guarda las últimas 8 ROMs abiertas |
 
-El título de la ventana muestra el nombre de la ROM cargada. **Archivo → Cerrar ROM** extrae el cartucho y **Archivo → Cargar demo** vuelve a la demostración.
+El título de la ventana muestra el nombre de la ROM cargada. **Archivo → Cerrar ROM e ir al inicio** extrae el cartucho y **Archivo → Cargar demo** abre la demostración.
 
 Si el archivo no es una ROM válida o usa un mapper no soportado, aparece una ventana de error con el motivo.
 
