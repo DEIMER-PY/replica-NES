@@ -14,6 +14,7 @@ use crate::{
     config::Config,
     input::{Gamepads, PLAYERS},
     rom::RomFile,
+    settings::SettingsWindow,
     storage::{SaveKind, SaveStore},
     video::Screen,
 };
@@ -51,6 +52,8 @@ pub enum Action {
     LoadState,
     SelectSlot(u8),
     ToggleMute,
+    ToggleFullscreen,
+    OpenSettings,
 }
 
 impl Action {
@@ -58,7 +61,7 @@ impl Action {
     ///
     /// El orden importa: un atajo con más modificadores va antes que otro con la misma
     /// tecla (`Ctrl+Shift+R` antes que `Ctrl+R`), porque se consume el primero que encaja.
-    pub const SHORTCUTS: [(Self, KeyboardShortcut); 11] = [
+    pub const SHORTCUTS: [(Self, KeyboardShortcut); 13] = [
         (Self::OpenRom, shortcut(Modifiers::COMMAND, Key::O)),
         (
             Self::Reset(ResetKind::Hard),
@@ -72,11 +75,23 @@ impl Action {
         (Self::SaveState, shortcut(Modifiers::NONE, Key::F5)),
         (Self::LoadState, shortcut(Modifiers::NONE, Key::F8)),
         (Self::ToggleMute, shortcut(Modifiers::NONE, Key::M)),
+        (Self::ToggleFullscreen, shortcut(Modifiers::NONE, Key::F11)),
+        (Self::OpenSettings, shortcut(Modifiers::COMMAND, Key::Comma)),
         (Self::SelectSlot(1), shortcut(Modifiers::NONE, Key::Num1)),
         (Self::SelectSlot(2), shortcut(Modifiers::NONE, Key::Num2)),
         (Self::SelectSlot(3), shortcut(Modifiers::NONE, Key::Num3)),
         (Self::SelectSlot(4), shortcut(Modifiers::NONE, Key::Num4)),
     ];
+
+    /// Si `key` está reservada por la app y no puede asignarse a un botón del mando:
+    /// los atajos de una sola tecla, el avance rápido y `Escape`.
+    pub fn is_reserved_key(key: Key) -> bool {
+        key == FAST_FORWARD_KEY
+            || key == Key::Escape
+            || Self::SHORTCUTS
+                .iter()
+                .any(|(_, shortcut)| shortcut.modifiers.is_none() && shortcut.logical_key == key)
+    }
 
     /// Atajo de teclado de la acción, si tiene.
     pub fn shortcut(self) -> Option<KeyboardShortcut> {
@@ -114,8 +129,8 @@ pub struct NesApp {
     pub(crate) state_slot: u8,
     /// Aviso breve y el instante en que deja de mostrarse.
     toast: Option<(String, f64)>,
-    /// Si está abierta la ventana de ayuda de controles.
-    pub(crate) show_controls: bool,
+    /// Estado de la ventana de ajustes.
+    pub(crate) settings: SettingsWindow,
     /// Mensaje de error pendiente de mostrar al usuario.
     pub(crate) error: Option<String>,
 }
@@ -146,7 +161,7 @@ impl NesApp {
             fast_forward: false,
             state_slot: *STATE_SLOTS.start(),
             toast: None,
-            show_controls: false,
+            settings: SettingsWindow::default(),
             error: None,
         };
         match initial_rom {
@@ -167,6 +182,11 @@ impl NesApp {
             Action::CloseRom => self.close_rom(ctx),
             Action::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
             Action::ToggleMute => self.config.muted = !self.config.muted,
+            Action::ToggleFullscreen => {
+                let fullscreen = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fullscreen));
+            }
+            Action::OpenSettings => self.settings.open = true,
             Action::SelectSlot(slot) => {
                 self.state_slot = slot;
                 self.notify(ctx, format!("Ranura {slot}"));
@@ -359,6 +379,10 @@ impl NesApp {
 
     /// Ejecuta los atajos de teclado pulsados.
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
+        // Al reasignar una tecla, la pulsación es para los ajustes, no un atajo.
+        if self.settings.is_capturing() {
+            return;
+        }
         // Mientras se escribe en la interfaz, las teclas sueltas no son atajos.
         let typing = ctx.egui_wants_keyboard_input();
         for (action, shortcut) in Action::SHORTCUTS {
@@ -381,7 +405,12 @@ impl NesApp {
 
     /// Pasa al emulador el estado de teclado y mandos.
     fn apply_input(&mut self, ctx: &egui::Context) {
-        let keyboard = self.config.key_bindings.read(ctx);
+        let keyboard = if self.settings.is_capturing() {
+            // La tecla que se está asignando no debe llegar al juego.
+            Default::default()
+        } else {
+            self.config.key_bindings.read(ctx)
+        };
         let gamepads = self.gamepads.read();
         for (index, player) in PLAYERS.into_iter().enumerate() {
             let pad = keyboard[index].merge(gamepads[index]);
@@ -405,8 +434,9 @@ impl NesApp {
             return;
         }
 
-        self.fast_forward =
-            !ctx.egui_wants_keyboard_input() && ctx.input(|input| input.key_down(FAST_FORWARD_KEY));
+        self.fast_forward = !ctx.egui_wants_keyboard_input()
+            && !self.settings.is_capturing()
+            && ctx.input(|input| input.key_down(FAST_FORWARD_KEY));
 
         let now = ctx.input(|input| input.time);
         let mut frame_rate = self.emulator.region().frame_rate();
