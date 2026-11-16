@@ -1,46 +1,123 @@
-//! La aplicación: une el emulador con la ventana.
+//! La aplicación: estado y lógica que unen el emulador con la ventana.
+//!
+//! La interfaz (menús y ventanas) está en [`crate::ui`]; ambos se comunican con
+//! [`Action`]: un menú o un atajo producen una acción y [`NesApp::perform`] la ejecuta.
 
 use std::path::{Path, PathBuf};
 
 use eframe::egui::{self, Key, KeyboardShortcut, Modifiers};
-use nes_core::{Button, Emulator, Player};
+use nes_core::{Button, Emulator, ResetKind};
 
 use crate::{
     audio::AudioOutput,
-    clock::FrameClock,
+    clock::{FrameClock, MAX_FRAMES_PER_UPDATE},
     config::Config,
     input::{Gamepads, PLAYERS},
     rom::RomFile,
+    storage::{SaveKind, SaveStore},
     video::Screen,
 };
 
 /// Nombre de la app, que encabeza el título de la ventana.
 pub const APP_NAME: &str = "replica-NES";
 
-/// Atajo de "Abrir ROM".
-const OPEN_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::O);
-/// Atajo de "Silenciar".
-const MUTE_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(Modifiers::NONE, Key::M);
+/// Ranuras de save state disponibles.
+pub const STATE_SLOTS: std::ops::RangeInclusive<u8> = 1..=4;
+
+/// Tecla que acelera la emulación mientras se mantiene pulsada.
+pub const FAST_FORWARD_KEY: Key = Key::F;
+/// Multiplicador de velocidad del avance rápido.
+const FAST_FORWARD_SPEED: f64 = 4.0;
+/// Tope de frames por repintado durante el avance rápido.
+const FAST_FORWARD_MAX_FRAMES: u32 = 8;
 
 /// Corrección máxima de la velocidad de emulación para mantener estable la cola de
 /// audio: ±0,5 %, imperceptible.
 const MAX_RATE_CORRECTION: f64 = 0.005;
 
+/// Segundos que permanece en pantalla un aviso.
+const TOAST_SECONDS: f64 = 2.0;
+
+/// Algo que el usuario puede pedir desde un menú o con un atajo de teclado.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
+    OpenRom,
+    LoadDemo,
+    CloseRom,
+    Quit,
+    TogglePause,
+    Reset(ResetKind),
+    SaveState,
+    LoadState,
+    SelectSlot(u8),
+    ToggleMute,
+}
+
+impl Action {
+    /// Acciones con atajo de teclado.
+    ///
+    /// El orden importa: un atajo con más modificadores va antes que otro con la misma
+    /// tecla (`Ctrl+Shift+R` antes que `Ctrl+R`), porque se consume el primero que encaja.
+    pub const SHORTCUTS: [(Self, KeyboardShortcut); 11] = [
+        (Self::OpenRom, shortcut(Modifiers::COMMAND, Key::O)),
+        (
+            Self::Reset(ResetKind::Hard),
+            shortcut(Modifiers::COMMAND.plus(Modifiers::SHIFT), Key::R),
+        ),
+        (
+            Self::Reset(ResetKind::Soft),
+            shortcut(Modifiers::COMMAND, Key::R),
+        ),
+        (Self::TogglePause, shortcut(Modifiers::NONE, Key::P)),
+        (Self::SaveState, shortcut(Modifiers::NONE, Key::F5)),
+        (Self::LoadState, shortcut(Modifiers::NONE, Key::F8)),
+        (Self::ToggleMute, shortcut(Modifiers::NONE, Key::M)),
+        (Self::SelectSlot(1), shortcut(Modifiers::NONE, Key::Num1)),
+        (Self::SelectSlot(2), shortcut(Modifiers::NONE, Key::Num2)),
+        (Self::SelectSlot(3), shortcut(Modifiers::NONE, Key::Num3)),
+        (Self::SelectSlot(4), shortcut(Modifiers::NONE, Key::Num4)),
+    ];
+
+    /// Atajo de teclado de la acción, si tiene.
+    pub fn shortcut(self) -> Option<KeyboardShortcut> {
+        Self::SHORTCUTS
+            .iter()
+            .find(|(action, _)| *action == self)
+            .map(|(_, shortcut)| *shortcut)
+    }
+}
+
+const fn shortcut(modifiers: Modifiers, key: Key) -> KeyboardShortcut {
+    KeyboardShortcut::new(modifiers, key)
+}
+
 /// Estado de la aplicación.
 pub struct NesApp {
-    emulator: Emulator,
-    screen: Screen,
+    pub(crate) emulator: Emulator,
+    pub(crate) screen: Screen,
     clock: FrameClock,
-    config: Config,
-    gamepads: Gamepads,
+    pub(crate) config: Config,
+    pub(crate) gamepads: Gamepads,
     /// Salida de sonido; `None` si no se pudo abrir (la app sigue, en silencio).
     audio: Option<AudioOutput>,
     /// Motivo por el que no hay sonido, para mostrarlo en el menú Audio.
-    audio_error: Option<String>,
+    pub(crate) audio_error: Option<String>,
+    saves: SaveStore,
+    /// Identificador de la ROM cargada, con el que se nombran sus archivos guardados.
+    rom_id: Option<String>,
+    /// Última RAM con batería escrita en disco, para no reescribirla si no cambió.
+    battery_on_disk: Option<Vec<u8>>,
+    pub(crate) paused: bool,
+    /// Si en el último repintado se estaba en avance rápido.
+    pub(crate) fast_forward: bool,
+    /// Ranura de save state seleccionada.
+    pub(crate) state_slot: u8,
+    /// Aviso breve y el instante en que deja de mostrarse.
+    toast: Option<(String, f64)>,
     /// Si está abierta la ventana de ayuda de controles.
-    show_controls: bool,
+    pub(crate) show_controls: bool,
     /// Mensaje de error pendiente de mostrar al usuario.
-    error: Option<String>,
+    pub(crate) error: Option<String>,
 }
 
 impl NesApp {
@@ -62,25 +139,76 @@ impl NesApp {
             gamepads: Gamepads::default(),
             audio,
             audio_error,
+            saves: SaveStore::for_app(APP_NAME),
+            rom_id: None,
+            battery_on_disk: None,
+            paused: false,
+            fast_forward: false,
+            state_slot: *STATE_SLOTS.start(),
+            toast: None,
             show_controls: false,
             error: None,
         };
         match initial_rom {
             Some(path) => app.open_path(&cc.egui_ctx, &path),
-            None => app.load_demo(&cc.egui_ctx),
+            None => app.perform(&cc.egui_ctx, Action::LoadDemo),
         }
         app
     }
 
-    /// Carga una ROM en el emulador y la anota en recientes si viene del disco.
+    /// Ejecuta una acción pedida por un menú o un atajo.
+    pub fn perform(&mut self, ctx: &egui::Context, action: Action) {
+        match action {
+            Action::OpenRom => self.open_dialog(ctx),
+            Action::LoadDemo => {
+                let demo = RomFile::from_bytes("demo.nes", nes_core::demo_rom());
+                self.load_rom(ctx, &demo);
+            }
+            Action::CloseRom => self.close_rom(ctx),
+            Action::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            Action::ToggleMute => self.config.muted = !self.config.muted,
+            Action::SelectSlot(slot) => {
+                self.state_slot = slot;
+                self.notify(ctx, format!("Ranura {slot}"));
+            }
+            // Las siguientes solo tienen sentido con un juego cargado.
+            _ if !self.has_rom() => {}
+            Action::TogglePause => self.paused = !self.paused,
+            Action::Reset(kind) => {
+                self.emulator.reset(kind);
+                self.paused = false;
+                self.clear_audio();
+                self.notify(
+                    ctx,
+                    match kind {
+                        ResetKind::Soft => "Reinicio",
+                        ResetKind::Hard => "Apagado y encendido",
+                    },
+                );
+            }
+            Action::SaveState => self.save_state(ctx),
+            Action::LoadState => self.load_state(ctx),
+        }
+    }
+
+    /// Si hay un juego cargado.
+    pub fn has_rom(&self) -> bool {
+        self.emulator.rom().is_some()
+    }
+
+    /// Carga una ROM en el emulador, restaura su partida y la anota en recientes.
     fn load_rom(&mut self, ctx: &egui::Context, rom: &RomFile) {
+        self.flush_battery();
         match self.emulator.load_rom(&rom.name, &rom.data) {
             Ok(info) => {
                 let title = format!("{APP_NAME} — {}", info.name);
                 ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
+                self.rom_id = Some(rom.id.clone());
                 self.error = None;
+                self.paused = false;
                 self.screen.clear();
                 self.clear_audio();
+                self.restore_battery();
                 if let Some(path) = &rom.path {
                     self.config.recent_roms.push(path);
                 }
@@ -94,7 +222,7 @@ impl NesApp {
     }
 
     /// Lee una ROM del disco y la carga.
-    fn open_path(&mut self, ctx: &egui::Context, path: &Path) {
+    pub fn open_path(&mut self, ctx: &egui::Context, path: &Path) {
         match RomFile::read(path) {
             Ok(rom) => self.load_rom(ctx, &rom),
             Err(err) => {
@@ -105,7 +233,6 @@ impl NesApp {
     }
 
     /// Muestra el diálogo del sistema para elegir una ROM.
-    #[cfg(not(target_arch = "wasm32"))]
     fn open_dialog(&mut self, ctx: &egui::Context) {
         let picked = rfd::FileDialog::new()
             .set_title("Abrir ROM")
@@ -117,29 +244,134 @@ impl NesApp {
         }
     }
 
-    /// Carga la ROM de demostración incluida.
-    fn load_demo(&mut self, ctx: &egui::Context) {
-        let demo = RomFile::from_bytes("demo.nes", nes_core::demo_rom());
-        self.load_rom(ctx, &demo);
-    }
-
-    /// Extrae el cartucho y deja la pantalla vacía.
+    /// Guarda la partida, extrae el cartucho y deja la pantalla vacía.
     fn close_rom(&mut self, ctx: &egui::Context) {
+        self.flush_battery();
         self.emulator.unload_rom();
+        self.rom_id = None;
+        self.battery_on_disk = None;
+        self.paused = false;
         self.screen.clear();
         self.clear_audio();
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(APP_NAME.to_owned()));
     }
 
-    /// Descarta el sonido pendiente de la ROM anterior.
+    /// Restaura desde disco la partida guardada de la ROM recién cargada.
+    fn restore_battery(&mut self) {
+        self.battery_on_disk = None;
+        let Some(rom_id) = &self.rom_id else {
+            return;
+        };
+        if self.emulator.battery_ram().is_none() {
+            return;
+        }
+        match self.saves.read(SaveKind::Battery, rom_id) {
+            Ok(Some(data)) => {
+                self.emulator.set_battery_ram(&data);
+                self.battery_on_disk = Some(data);
+            }
+            Ok(None) => {}
+            Err(err) => self.error = Some(err),
+        }
+    }
+
+    /// Escribe en disco la partida guardada del juego, si tiene y ha cambiado.
+    fn flush_battery(&mut self) {
+        let Some(rom_id) = &self.rom_id else {
+            return;
+        };
+        let Some(data) = self.emulator.battery_ram() else {
+            return;
+        };
+        if self.battery_on_disk.as_ref() == Some(&data) {
+            return;
+        }
+        match self.saves.write(SaveKind::Battery, rom_id, &data) {
+            Ok(()) => self.battery_on_disk = Some(data),
+            Err(err) => self.error = Some(err),
+        }
+    }
+
+    /// Guarda el estado de la consola en la ranura seleccionada.
+    fn save_state(&mut self, ctx: &egui::Context) {
+        let Some(rom_id) = self.rom_id.clone() else {
+            return;
+        };
+        let slot = self.state_slot;
+        let result = self
+            .emulator
+            .save_state()
+            .map_err(|err| err.to_string())
+            .and_then(|data| self.saves.write(SaveKind::State(slot), &rom_id, &data));
+        match result {
+            Ok(()) => self.notify(ctx, format!("Estado guardado en la ranura {slot}")),
+            Err(err) => self.error = Some(err),
+        }
+    }
+
+    /// Restaura el estado de la ranura seleccionada.
+    fn load_state(&mut self, ctx: &egui::Context) {
+        let Some(rom_id) = self.rom_id.clone() else {
+            return;
+        };
+        let slot = self.state_slot;
+        match self.saves.read(SaveKind::State(slot), &rom_id) {
+            Ok(Some(data)) => match self.emulator.load_state(&data) {
+                Ok(()) => {
+                    self.clear_audio();
+                    // El estado no incluye la imagen: se emula un frame para tenerla,
+                    // de modo que también se vea al cargar con la consola en pausa.
+                    if let Err(err) = self.emulator.run_frame() {
+                        self.error = Some(err.to_string());
+                        return;
+                    }
+                    self.screen.upload(ctx, self.emulator.frame());
+                    self.notify(ctx, format!("Estado cargado de la ranura {slot}"));
+                }
+                Err(err) => self.error = Some(err.to_string()),
+            },
+            Ok(None) => self.notify(ctx, format!("La ranura {slot} está vacía")),
+            Err(err) => self.error = Some(err),
+        }
+    }
+
+    /// Muestra un aviso breve sobre la imagen.
+    fn notify(&mut self, ctx: &egui::Context, message: impl Into<String>) {
+        let until = ctx.input(|input| input.time) + TOAST_SECONDS;
+        self.toast = Some((message.into(), until));
+    }
+
+    /// Aviso vigente, si lo hay.
+    pub fn toast(&mut self, ctx: &egui::Context) -> Option<&str> {
+        let now = ctx.input(|input| input.time);
+        if self.toast.as_ref().is_some_and(|(_, until)| now >= *until) {
+            self.toast = None;
+        }
+        self.toast.as_ref().map(|(message, _)| message.as_str())
+    }
+
+    /// Descarta el sonido pendiente (cambio de ROM, reinicio, carga de estado).
     fn clear_audio(&self) {
         if let Some(audio) = &self.audio {
             audio.clear();
         }
     }
 
+    /// Ejecuta los atajos de teclado pulsados.
+    fn handle_shortcuts(&mut self, ctx: &egui::Context) {
+        // Mientras se escribe en la interfaz, las teclas sueltas no son atajos.
+        let typing = ctx.egui_wants_keyboard_input();
+        for (action, shortcut) in Action::SHORTCUTS {
+            if typing && shortcut.modifiers.is_none() {
+                continue;
+            }
+            if ctx.input_mut(|input| input.consume_shortcut(&shortcut)) {
+                self.perform(ctx, action);
+            }
+        }
+    }
+
     /// Carga el primer archivo soltado sobre la ventana, si lo hay.
-    #[cfg(not(target_arch = "wasm32"))]
     fn handle_dropped_files(&mut self, ctx: &egui::Context) {
         let dropped = ctx.input(|input| input.raw.dropped_files.first().cloned());
         if let Some(file) = dropped {
@@ -161,21 +393,35 @@ impl NesApp {
 
     /// Emula los frames que tocan desde el repintado anterior.
     fn run_emulation(&mut self, ctx: &egui::Context) {
-        if self.emulator.rom().is_none() {
+        self.fast_forward = false;
+        if !self.has_rom() {
+            return;
+        }
+        if let Some(audio) = &self.audio {
+            audio.set_volume(f32::from(self.config.volume) / 100.0, self.config.muted);
+        }
+        if self.paused {
+            self.clock.reset();
             return;
         }
 
+        self.fast_forward =
+            !ctx.egui_wants_keyboard_input() && ctx.input(|input| input.key_down(FAST_FORWARD_KEY));
+
         let now = ctx.input(|input| input.time);
         let mut frame_rate = self.emulator.region().frame_rate();
-        if let Some(audio) = &self.audio {
-            audio.set_volume(f32::from(self.config.volume) / 100.0, self.config.muted);
+        let mut max_frames = MAX_FRAMES_PER_UPDATE;
+        if self.fast_forward {
+            frame_rate *= FAST_FORWARD_SPEED;
+            max_frames = FAST_FORWARD_MAX_FRAMES;
+        } else if let Some(audio) = &self.audio {
             // El reloj de la tarjeta de sonido y el de la pantalla nunca coinciden del
             // todo. Con la cola de audio baja se emula un poco más rápido y con la cola
             // alta un poco más lento, para que ni se vacíe ni se acumule retraso.
             let error = f64::from(audio.fill_error()).clamp(-1.0, 1.0);
             frame_rate *= 1.0 - error * MAX_RATE_CORRECTION;
         }
-        let frames = self.clock.frames_due(now, frame_rate);
+        let frames = self.clock.frames_due(now, frame_rate, max_frames);
         self.apply_input(ctx);
 
         for _ in 0..frames {
@@ -184,7 +430,10 @@ impl NesApp {
                 self.error = Some(err.to_string());
                 return;
             }
-            if let Some(audio) = &self.audio {
+            // En avance rápido el sonido iría acelerado y desbordaría la cola: se omite.
+            if !self.fast_forward
+                && let Some(audio) = &self.audio
+            {
                 audio.push(self.emulator.audio_samples());
             }
         }
@@ -192,186 +441,11 @@ impl NesApp {
             self.screen.upload(ctx, self.emulator.frame());
         }
     }
-
-    /// Barra de menús.
-    fn menu_bar(&mut self, ui: &mut egui::Ui) {
-        let ctx = ui.ctx().clone();
-        egui::MenuBar::new().ui(ui, |ui| {
-            ui.menu_button("Archivo", |ui| {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let open = egui::Button::new("Abrir ROM…")
-                        .shortcut_text(ctx.format_shortcut(&OPEN_SHORTCUT));
-                    if ui.add(open).clicked() {
-                        self.open_dialog(&ctx);
-                    }
-                    self.recent_menu(ui, &ctx);
-                    ui.separator();
-                }
-                if ui.button("Cargar demo").clicked() {
-                    self.load_demo(&ctx);
-                }
-                let has_rom = self.emulator.rom().is_some();
-                if ui
-                    .add_enabled(has_rom, egui::Button::new("Cerrar ROM"))
-                    .clicked()
-                {
-                    self.close_rom(&ctx);
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    ui.separator();
-                    if ui.button("Salir").clicked() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-                }
-            });
-            ui.menu_button("Ver", |ui| {
-                ui.checkbox(&mut self.config.integer_scaling, "Escalado entero");
-            });
-            ui.menu_button("Audio", |ui| {
-                if let Some(error) = &self.audio_error {
-                    ui.colored_label(ui.visuals().warn_fg_color, "Sin sonido");
-                    ui.weak(error);
-                    return;
-                }
-                let mute = egui::Checkbox::new(&mut self.config.muted, "Silenciar");
-                ui.add(mute)
-                    .on_hover_text(ctx.format_shortcut(&MUTE_SHORTCUT));
-                ui.add_enabled(
-                    !self.config.muted,
-                    egui::Slider::new(&mut self.config.volume, 0..=100)
-                        .text("Volumen")
-                        .suffix(" %"),
-                );
-            });
-            ui.menu_button("Ayuda", |ui| {
-                if ui.button("Controles").clicked() {
-                    self.show_controls = true;
-                }
-            });
-        });
-    }
-
-    /// Submenú con las ROMs abiertas recientemente.
-    #[cfg(not(target_arch = "wasm32"))]
-    fn recent_menu(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.add_enabled_ui(!self.config.recent_roms.is_empty(), |ui| {
-            ui.menu_button("Recientes", |ui| {
-                let mut chosen = None;
-                for path in self.config.recent_roms.iter() {
-                    let name = path
-                        .file_name()
-                        .map_or_else(|| path.to_string_lossy(), |name| name.to_string_lossy());
-                    if ui
-                        .button(name)
-                        .on_hover_text(path.to_string_lossy())
-                        .clicked()
-                    {
-                        chosen = Some(path.to_path_buf());
-                    }
-                }
-                ui.separator();
-                if ui.button("Vaciar lista").clicked() {
-                    self.config.recent_roms.clear();
-                }
-                if let Some(path) = chosen {
-                    self.open_path(ctx, &path);
-                }
-            });
-        });
-    }
-
-    /// Ventana de ayuda con las teclas de cada jugador y los mandos conectados.
-    fn controls_window(&mut self, ctx: &egui::Context) {
-        let mut open = self.show_controls;
-        egui::Window::new("Controles")
-            .open(&mut open)
-            .collapsible(false)
-            .resizable(false)
-            .show(ctx, |ui| {
-                egui::Grid::new("controls").striped(true).show(ui, |ui| {
-                    ui.strong("Botón");
-                    ui.strong("Jugador 1");
-                    ui.strong("Jugador 2");
-                    ui.end_row();
-                    for button in Button::ALL {
-                        ui.label(button_label(button));
-                        for player in PLAYERS {
-                            let key = self.config.key_bindings.map(player).key(button);
-                            ui.monospace(key.symbol_or_name());
-                        }
-                        ui.end_row();
-                    }
-                });
-                ui.separator();
-                let names = self.gamepads.names();
-                if names.is_empty() {
-                    ui.weak("Ningún mando conectado.");
-                }
-                for (player, name) in PLAYERS.iter().zip(&names) {
-                    ui.label(format!("{}: {name}", player_label(*player)));
-                }
-            });
-        self.show_controls = open;
-    }
-
-    /// Ventana con el último error, hasta que el usuario la cierra.
-    fn error_window(&mut self, ctx: &egui::Context) {
-        let Some(message) = &self.error else {
-            return;
-        };
-        let mut dismissed = false;
-        egui::Window::new("Error")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
-            .show(ctx, |ui| {
-                ui.set_max_width(420.0);
-                ui.label(message);
-                ui.add_space(8.0);
-                dismissed = ui.button("Aceptar").clicked();
-            });
-        if dismissed {
-            self.error = None;
-        }
-    }
-}
-
-/// Nombre de un botón para la interfaz.
-const fn button_label(button: Button) -> &'static str {
-    match button {
-        Button::Up => "Arriba",
-        Button::Down => "Abajo",
-        Button::Left => "Izquierda",
-        Button::Right => "Derecha",
-        Button::A => "A",
-        Button::B => "B",
-        Button::Select => "Select",
-        Button::Start => "Start",
-    }
-}
-
-/// Nombre de un jugador para la interfaz.
-const fn player_label(player: Player) -> &'static str {
-    match player {
-        Player::One => "Jugador 1",
-        Player::Two => "Jugador 2",
-    }
 }
 
 impl eframe::App for NesApp {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        #[cfg(not(target_arch = "wasm32"))]
-        if ctx.input_mut(|input| input.consume_shortcut(&OPEN_SHORTCUT)) {
-            self.open_dialog(ctx);
-        }
-        if !ctx.egui_wants_keyboard_input()
-            && ctx.input_mut(|input| input.consume_shortcut(&MUTE_SHORTCUT))
-        {
-            self.config.muted = !self.config.muted;
-        }
-        #[cfg(not(target_arch = "wasm32"))]
+        self.handle_shortcuts(ctx);
         self.handle_dropped_files(ctx);
         self.run_emulation(ctx);
         // La emulación es continua: se pide repintar siempre, sin esperar a eventos.
@@ -379,31 +453,71 @@ impl eframe::App for NesApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::Panel::top("menu").show(ui, |ui| self.menu_bar(ui));
-
-        egui::CentralPanel::default()
-            .frame(egui::Frame::NONE)
-            .show(ui, |ui| {
-                self.screen.show(ui, self.config.integer_scaling);
-                if self.emulator.rom().is_none() {
-                    ui.put(
-                        ui.max_rect(),
-                        egui::Label::new(
-                            egui::RichText::new(
-                                "Arrastra una ROM (.nes) aquí o usa Archivo → Abrir ROM…",
-                            )
-                            .color(egui::Color32::GRAY)
-                            .size(16.0),
-                        ),
-                    );
-                }
-            });
-
-        self.controls_window(ui.ctx());
-        self.error_window(ui.ctx());
+        self.show(ui);
     }
 
+    /// `eframe` lo llama cada 30 segundos y al cerrar la app.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        self.flush_battery();
         self.config.save(storage);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_shortcut_is_unique() {
+        for (i, (_, a)) in Action::SHORTCUTS.iter().enumerate() {
+            for (_, b) in &Action::SHORTCUTS[i + 1..] {
+                assert_ne!(a, b);
+            }
+        }
+    }
+
+    #[test]
+    fn specific_shortcuts_come_before_general_ones() {
+        // Ctrl+Shift+R debe evaluarse antes que Ctrl+R, o nunca se alcanzaría.
+        let position = |target: Action| {
+            Action::SHORTCUTS
+                .iter()
+                .position(|(action, _)| *action == target)
+                .unwrap()
+        };
+        assert!(
+            position(Action::Reset(ResetKind::Hard)) < position(Action::Reset(ResetKind::Soft))
+        );
+    }
+
+    #[test]
+    fn slot_shortcuts_cover_all_slots() {
+        for slot in STATE_SLOTS {
+            assert!(
+                Action::SelectSlot(slot).shortcut().is_some(),
+                "ranura {slot}"
+            );
+        }
+        assert!(Action::Quit.shortcut().is_none());
+    }
+
+    #[test]
+    fn shortcuts_do_not_use_default_game_keys() {
+        use crate::input::KeyBindings;
+
+        let bindings = KeyBindings::default();
+        let game_keys: Vec<Key> = PLAYERS
+            .iter()
+            .flat_map(|&player| Button::ALL.map(|button| bindings.map(player).key(button)))
+            .collect();
+        for (action, shortcut) in Action::SHORTCUTS {
+            if shortcut.modifiers.is_none() {
+                assert!(
+                    !game_keys.contains(&shortcut.logical_key),
+                    "{action:?} choca con una tecla de juego"
+                );
+            }
+        }
+        assert!(!game_keys.contains(&FAST_FORWARD_KEY));
     }
 }

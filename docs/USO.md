@@ -58,6 +58,36 @@ Los mandos USB o Bluetooth se detectan solos, también si se conectan con la app
 
 Con la ROM de demostración se puede comprobar: al mantener el botón A del jugador 1 la pantalla pasa de azul a rojo.
 
+## Emulación
+
+Todo está en el menú **Emulación** y tiene atajo:
+
+| Acción | Atajo | Qué hace |
+|---|---|---|
+| Pausar / Reanudar | `P` | Detiene la consola; se indica con **PAUSA** en pantalla |
+| Reiniciar | `Ctrl+R` | Botón RESET de la consola: conserva la memoria |
+| Apagar y encender | `Ctrl+Shift+R` | Reinicio completo: borra la memoria (no la partida con batería) |
+| Avance rápido | mantener `F` | Emula a ×4, sin sonido, mientras se mantiene la tecla |
+| Guardar estado | `F5` | Guarda el instante exacto del juego en la ranura seleccionada |
+| Cargar estado | `F8` | Vuelve al instante guardado en la ranura seleccionada |
+| Elegir ranura | `1` a `4` | Cuatro ranuras independientes por juego |
+
+### Partidas y estados guardados
+
+Hay dos formas de guardar, y son independientes:
+
+- **Partida del juego (batería).** Los juegos que guardaban en el cartucho lo hacen igual aquí. La app escribe esa memoria en disco sola: cada 30 segundos, al cambiar o cerrar la ROM y al salir.
+- **Estados (save states).** Una foto completa de la consola que se guarda y se carga cuando el usuario quiere, en cualquier juego.
+
+Ambos se guardan en la carpeta de datos de la app, no junto a la ROM. En Windows:
+
+```
+%APPDATA%\replica-NES\data\saves\<juego>.sav
+%APPDATA%\replica-NES\data\states\<juego>.<ranura>.state
+```
+
+El nombre incluye una huella del contenido de la ROM, así que dos versiones distintas del mismo juego no se pisan la partida.
+
 ## Sonido
 
 El sonido sale por el dispositivo de audio por defecto del sistema. En el menú **Audio**:

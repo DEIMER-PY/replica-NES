@@ -89,12 +89,14 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 | Módulo | Contenido |
 |---|---|
 | `main.rs` | Punto de entrada nativo: crea la ventana y arranca `NesApp` |
-| `app.rs` | `NesApp`: estado de la app; implementa `eframe::App` |
+| `app.rs` | `NesApp` (estado y lógica), `Action` (órdenes del usuario) y sus atajos; implementa `eframe::App` |
+| `ui.rs` | Interfaz: barra de menús, textos sobre la imagen y ventanas |
 | `clock.rs` | `FrameClock`: cuántos frames de la NES tocan en cada repintado |
 | `video.rs` | `Screen` (textura del frame) y `fit_rect` (colocación y escalado) |
 | `rom.rs` | `RomFile` (lectura de una ROM del disco) y `RecentRoms` (lista de recientes) |
 | `config.rs` | `Config`: ajustes persistentes, guardados con el almacenamiento de `eframe` |
 | `audio.rs` | `AudioOutput`: salida de sonido con `cpal` y cola de muestras |
+| `storage.rs` | `SaveStore`: partidas con batería y save states en disco |
 | `input.rs` | `KeyBindings` (teclado), `Gamepads` (mandos con `gilrs`) y `PadState` (botones pulsados) |
 
 ### Ciclo de la app
@@ -105,6 +107,30 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 2. **`ui`** — dibuja. `Screen::show` pinta la textura centrada sobre fondo negro.
 
 Al final de `logic` se pide siempre otro repintado (`request_repaint`), porque la emulación es continua y no depende de eventos del usuario.
+
+### Acciones
+
+Menús y atajos de teclado no llaman a la lógica directamente: producen un valor de `Action` (`OpenRom`, `TogglePause`, `Reset(kind)`, `SaveState`, `SelectSlot(n)`...) y `NesApp::perform` lo ejecuta. Así cada orden tiene una sola implementación, y el atajo que muestra el menú es siempre el que de verdad funciona, porque ambos salen de la misma tabla (`Action::SHORTCUTS`).
+
+Los atajos de una sola tecla (`P`, `M`, `F5`...) se ignoran mientras la interfaz usa el teclado, y un test comprueba que ninguno coincide con una tecla de juego por defecto.
+
+### Pausa y avance rápido
+
+- **Pausa:** no se emula y se reinicia `FrameClock`, para que al reanudar no se intente recuperar el tiempo que duró la pausa.
+- **Avance rápido:** mientras se mantiene `F`, `FrameClock` trabaja a ×4 con un tope de 8 frames por repintado. El audio no se encola, porque sonaría acelerado y desbordaría la cola.
+
+### Partidas y estados guardados
+
+`SaveStore` guarda dos tipos de archivo en la carpeta de datos de la app, con el identificador de la ROM (`nombre-huella`, donde la huella es un FNV-1a del contenido) como nombre:
+
+| Tipo | Archivo | Cuándo se escribe |
+|---|---|---|
+| RAM con batería | `saves/<rom>.sav` | Cada 30 s (`App::save`), al cambiar o cerrar la ROM y al salir; solo si cambió |
+| Save state | `states/<rom>.<ranura>.state` | Cuando el usuario lo pide |
+
+La escritura es atómica (archivo temporal y renombrado): si la app se cierra a mitad, la partida anterior queda intacta.
+
+Al cargar un estado se emula un frame antes de mostrar la imagen, porque el estado serializado no incluye el frame buffer.
 
 ### Carga de ROMs
 

@@ -15,6 +15,9 @@ const MAX_RECENT: usize = 8;
 pub struct RomFile {
     /// Nombre para mostrar: el del archivo sin extensión.
     pub name: String,
+    /// Identificador estable de la ROM (nombre y huella del contenido), con el que se
+    /// nombran sus partidas y estados guardados.
+    pub id: String,
     /// Contenido del archivo.
     pub data: Vec<u8>,
     /// Ruta en disco, si viene de un archivo local (en la web no hay ruta).
@@ -41,8 +44,10 @@ impl RomFile {
             ));
         }
         let data = std::fs::read(path).map_err(|err| format!("No se pudo leer {shown}: {err}"))?;
+        let name = display_name(path);
         Ok(Self {
-            name: display_name(path),
+            id: rom_id(&name, &data),
+            name,
             data,
             path: Some(path.to_path_buf()),
         })
@@ -50,8 +55,10 @@ impl RomFile {
 
     /// Crea una ROM a partir de bytes ya en memoria (archivo soltado en la web, demo).
     pub fn from_bytes(file_name: &str, data: Vec<u8>) -> Self {
+        let name = display_name(Path::new(file_name));
         Self {
-            name: display_name(Path::new(file_name)),
+            id: rom_id(&name, &data),
+            name,
             data,
             path: None,
         }
@@ -64,6 +71,27 @@ fn display_name(path: &Path) -> String {
         || "ROM".to_owned(),
         |stem| stem.to_string_lossy().into_owned(),
     )
+}
+
+/// Identificador de una ROM: su nombre (solo caracteres válidos en un nombre de archivo)
+/// más una huella del contenido, para que dos ROMs distintas con el mismo nombre no
+/// compartan partida.
+fn rom_id(name: &str, data: &[u8]) -> String {
+    let safe: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, ' ' | '-' | '_' | '(' | ')') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    // FNV-1a de 32 bits: suficiente para distinguir ROMs, sin dependencias.
+    let hash = data.iter().fold(0x811c_9dc5_u32, |hash, &byte| {
+        (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193)
+    });
+    format!("{safe}-{hash:08x}")
 }
 
 /// ROMs abiertas recientemente, de la más reciente a la más antigua.
@@ -142,6 +170,16 @@ mod tests {
         let rom = RomFile::from_bytes("juegos/Mi Juego (USA).nes", vec![1, 2, 3]);
         assert_eq!(rom.name, "Mi Juego (USA)");
         assert_eq!(rom.path, None);
+    }
+
+    #[test]
+    fn id_is_filename_safe_and_depends_on_contents() {
+        let a = RomFile::from_bytes("Mi*Juego?.nes", vec![1, 2, 3]);
+        let b = RomFile::from_bytes("Mi*Juego?.nes", vec![1, 2, 4]);
+        assert!(a.id.starts_with("Mi_Juego_-"), "{}", a.id);
+        assert!(!a.id.contains(['*', '?']));
+        assert_ne!(a.id, b.id);
+        assert_eq!(a.id, RomFile::from_bytes("Mi*Juego?.nes", vec![1, 2, 3]).id);
     }
 
     #[test]
