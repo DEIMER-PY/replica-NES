@@ -9,9 +9,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 - `nes-app`: reasignación de los botones del mando por jugador en **Ajustes → Controles**, también para botones que el sistema no reconoce (mandos genéricos).
 
+- `nes-core`: `skip_frame` y `run_frame_silent`, que emulan un frame sin generar imagen o sonido.
+- `nes-core`: ejemplo `bench` para medir la velocidad de emulación.
+- CI: workflow `release` que compila los ejecutables de Windows y Linux y los adjunta a la release al subir un tag.
+
 ### Cambiado
 
 - `nes-app`: la ventana de ajustes se desplaza si no cabe en la ventana de la app.
+- Perfil `release` con LTO completo y `panic = "abort"`: un 16 % más rápido en el benchmark, y ejecutable sin símbolos.
+- `nes-app`: el avance rápido solo dibuja el último frame de cada repintado y no genera audio.
+- `nes-app`: en pausa o sin juego la ventana deja de repintarse de forma continua, para no ocupar la CPU ni la gráfica.
 
 ## [0.1.0] - 2026-11-16
 

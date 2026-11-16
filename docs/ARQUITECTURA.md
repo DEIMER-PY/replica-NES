@@ -52,6 +52,8 @@ Ventajas de esta separación:
 | `load_rom(nombre, bytes)` | Carga una ROM iNES / NES 2.0 desde memoria y devuelve su `RomInfo` |
 | `unload_rom()` | Extrae el cartucho |
 | `run_frame()` | Emula un frame completo de vídeo y su audio |
+| `run_frame_silent()` | Emula un frame con imagen pero sin generar sonido |
+| `skip_frame()` | Emula un frame sin generar imagen ni sonido (el juego avanza igual) |
 | `frame()` | Imagen del último frame: 256×240 RGBA |
 | `audio_samples()` | Muestras mono `f32` del último frame |
 | `set_sample_rate(hz)` | Ajusta el audio a la frecuencia del dispositivo de salida |
@@ -134,7 +136,19 @@ Las teclas reservadas se derivan de la tabla de atajos, así que un atajo nuevo 
 ### Pausa y avance rápido
 
 - **Pausa:** no se emula y se reinicia `FrameClock`, para que al reanudar no se intente recuperar el tiempo que duró la pausa.
-- **Avance rápido:** mientras se mantiene `F`, `FrameClock` trabaja a ×4 con un tope de 8 frames por repintado. El audio no se encola, porque sonaría acelerado y desbordaría la cola.
+- **Avance rápido:** mientras se mantiene `F`, `FrameClock` trabaja a ×4 con un tope de 8 frames por repintado. El audio no se genera, porque sonaría acelerado y desbordaría la cola. De los frames de cada repintado solo se dibuja el último (`run_frame_silent`); los anteriores se emulan con `skip_frame`.
+- **En reposo:** en pausa o sin juego la ventana no se repinta de forma continua, sino cada 50 ms, lo justo para atender a los mandos y retirar los avisos. Así la app no ocupa la CPU ni la gráfica mientras espera.
+
+### Rendimiento
+
+Una NES real produce unos 60 frames por segundo; el core emula varios cientos en un equipo actual, así que el margen es amplio. Para medirlo sin ventana ni sonido:
+
+```sh
+cargo run -p nes-core --release --example bench                 # ROM de demostración
+cargo run -p nes-core --release --example bench -- juego.nes    # una ROM propia
+```
+
+El perfil `release` de `Cargo.toml` está ajustado con esa medición: LTO completo, una sola unidad de generación de código y `panic = "abort"` dan un 16 % más de velocidad que LTO «thin» (de unos 655 a unos 760 frames por segundo con la demo en el equipo de desarrollo), a cambio de una compilación más lenta. El ejecutable se genera además sin símbolos de depuración.
 
 ### Partidas y estados guardados
 
