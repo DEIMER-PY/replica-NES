@@ -2,7 +2,7 @@
 
 Emulador de la consola NES escrito en Rust: app nativa de escritorio con interfaz gráfica y, más adelante, versión web (WebAssembly).
 
-> Proyecto en desarrollo. El estado de cada funcionalidad está en [docs/ROADMAP.md](docs/ROADMAP.md).
+> El estado de cada funcionalidad y lo que queda por hacer está en [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Qué es
 
@@ -31,6 +31,26 @@ cd replica-NES
 cargo run -p nes-app --release
 ```
 
+Para abrir una ROM directamente: `cargo run -p nes-app --release -- ruta/al/juego.nes`.
+
+Versión web (requiere `trunk` y el target `wasm32-unknown-unknown`, ver [docs/WEB.md](docs/WEB.md)):
+
+```sh
+cd crates/nes-app
+trunk serve
+```
+
+## Funcionalidades
+
+- Emulación de CPU, PPU, APU y más de 30 mappers mediante `tetanes-core`.
+- Carga de ROMs por menú, arrastrar y soltar, línea de comandos y lista de recientes.
+- Teclado para dos jugadores con teclas reasignables, y mandos USB o Bluetooth.
+- Sonido con volumen y silencio.
+- Pausa, reinicio, avance rápido ×4 y save states en 4 ranuras.
+- Guardado automático de las partidas con batería.
+- Escalado entero, proporción de televisor 8:7 y pantalla completa.
+- Escritorio (Windows, Linux, macOS) y navegador (WebAssembly).
+
 ## Documentación
 
 | Documento | Contenido |
@@ -39,6 +59,7 @@ cargo run -p nes-app --release
 | [docs/HARDWARE-NES.md](docs/HARDWARE-NES.md) | Cómo funciona la NES: CPU, PPU, APU, mappers, formato iNES |
 | [docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md) | Entorno, flujo de ramas y convención de commits |
 | [docs/USO.md](docs/USO.md) | Cargar ROMs, controles y atajos |
+| [docs/WEB.md](docs/WEB.md) | Versión web: compilar con `trunk`, diferencias y publicación |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Funcionalidades hechas y pendientes |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Cómo contribuir |
 | [CHANGELOG.md](CHANGELOG.md) | Historial de cambios |

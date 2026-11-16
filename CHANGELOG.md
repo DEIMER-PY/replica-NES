@@ -18,4 +18,6 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - `nes-app`: salida de sonido con `cpal`, volumen y silencio (`M`), y control dinámico de velocidad para mantener el audio sincronizado.
 - `nes-app`: pausa, reinicio, avance rápido ×4, save states en 4 ranuras y guardado automático de la RAM con batería.
 - `nes-app`: ventana de ajustes con reasignación de teclas, proporción de televisor (8:7) y pantalla completa (`F11`).
+- `nes-app`: versión web en WebAssembly con `trunk`: render WebGL, selector de archivos del navegador y guardado en `localStorage`.
+- CI: job que compila y pasa clippy para `wasm32-unknown-unknown`.
 - `nes-core`: ejemplo `dump_demo` para escribir la ROM de demostración en disco.

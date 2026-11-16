@@ -97,6 +97,8 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 | `config.rs` | `Config`: ajustes persistentes, guardados con el almacenamiento de `eframe` |
 | `audio.rs` | `AudioOutput`: salida de sonido con `cpal` y cola de muestras |
 | `settings.rs` | Ventana de ajustes (controles, vídeo, audio) y reasignación de teclas |
+| `storage_web.rs` | Versión web de `SaveStore`, sobre `localStorage` |
+| `web.rs` | Solo web: `RomInbox`, lectura asíncrona de ROMs (ver [WEB.md](WEB.md)) |
 | `storage.rs` | `SaveStore`: partidas con batería y save states en disco |
 | `input.rs` | `KeyBindings` (teclado), `Gamepads` (mandos con `gilrs`) y `PadState` (botones pulsados) |
 

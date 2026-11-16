@@ -209,6 +209,13 @@ impl NesApp {
         ui.checkbox(&mut self.config.tv_aspect, "Proporción de televisor (8:7)")
             .on_hover_text("Ensancha la imagen como se veía en un televisor de la época.");
 
+        // En la web la pantalla completa la gestiona el propio navegador (F11).
+        #[cfg(not(target_arch = "wasm32"))]
+        self.fullscreen_control(ui);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn fullscreen_control(&mut self, ui: &mut egui::Ui) {
         let mut fullscreen = ui.input(|input| input.viewport().fullscreen.unwrap_or(false));
         let checkbox = ui.checkbox(&mut fullscreen, "Pantalla completa");
         if checkbox.changed() {

@@ -1,0 +1,12 @@
+# Configuración de trunk para la versión web.
+#
+#   trunk serve            servidor de desarrollo en http://127.0.0.1:8080
+#   trunk build --release  genera el sitio estático en dist/
+
+[build]
+target = "index.html"
+dist = "dist"
+
+[serve]
+addresses = ["127.0.0.1"]
+port = 8080
