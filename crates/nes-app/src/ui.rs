@@ -1,11 +1,11 @@
 //! Interfaz: barra de menús, pantalla del juego y ventanas.
 
 use eframe::egui::{self, Align2, Color32};
-use nes_core::{Button, Player, ResetKind};
+use nes_core::ResetKind;
 
 use crate::{
     app::{Action, FAST_FORWARD_KEY, NesApp, STATE_SLOTS},
-    input::PLAYERS,
+    settings::Tab,
 };
 
 impl NesApp {
@@ -16,11 +16,11 @@ impl NesApp {
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)
             .show(ui, |ui| {
-                self.screen.show(ui, self.config.integer_scaling);
+                self.screen.show(ui, self.config.scaling());
                 self.overlays(ui);
             });
 
-        self.controls_window(ui.ctx());
+        self.settings_window(ui.ctx());
         self.error_window(ui.ctx());
     }
 
@@ -45,6 +45,8 @@ impl NesApp {
                 ui.separator();
                 self.action_button(ui, "Cargar demo", Action::LoadDemo, true);
                 self.action_button(ui, "Cerrar ROM", Action::CloseRom, has_rom);
+                ui.separator();
+                self.action_button(ui, "Ajustes…", Action::OpenSettings, true);
                 ui.separator();
                 self.action_button(ui, "Salir", Action::Quit, true);
             });
@@ -78,31 +80,13 @@ impl NesApp {
                 ));
             });
 
-            ui.menu_button("Ver", |ui| {
-                ui.checkbox(&mut self.config.integer_scaling, "Escalado entero");
-            });
+            ui.menu_button("Ver", |ui| self.video_controls(ui));
 
-            ui.menu_button("Audio", |ui| {
-                if let Some(error) = &self.audio_error {
-                    ui.colored_label(ui.visuals().warn_fg_color, "Sin sonido");
-                    ui.weak(error);
-                    return;
-                }
-                let mute = ui.checkbox(&mut self.config.muted, "Silenciar");
-                if let Some(shortcut) = Action::ToggleMute.shortcut() {
-                    mute.on_hover_text(ui.ctx().format_shortcut(&shortcut));
-                }
-                ui.add_enabled(
-                    !self.config.muted,
-                    egui::Slider::new(&mut self.config.volume, 0..=100)
-                        .text("Volumen")
-                        .suffix(" %"),
-                );
-            });
+            ui.menu_button("Audio", |ui| self.audio_controls(ui));
 
             ui.menu_button("Ayuda", |ui| {
                 if ui.button("Controles").clicked() {
-                    self.show_controls = true;
+                    self.settings.open_at(Tab::Controls);
                 }
             });
         });
@@ -174,40 +158,6 @@ impl NesApp {
         }
     }
 
-    /// Ventana de ayuda con las teclas de cada jugador y los mandos conectados.
-    fn controls_window(&mut self, ctx: &egui::Context) {
-        let mut open = self.show_controls;
-        egui::Window::new("Controles")
-            .open(&mut open)
-            .collapsible(false)
-            .resizable(false)
-            .show(ctx, |ui| {
-                egui::Grid::new("controls").striped(true).show(ui, |ui| {
-                    ui.strong("Botón");
-                    ui.strong("Jugador 1");
-                    ui.strong("Jugador 2");
-                    ui.end_row();
-                    for button in Button::ALL {
-                        ui.label(button_label(button));
-                        for player in PLAYERS {
-                            let key = self.config.key_bindings.map(player).key(button);
-                            ui.monospace(key.symbol_or_name());
-                        }
-                        ui.end_row();
-                    }
-                });
-                ui.separator();
-                let names = self.gamepads.names();
-                if names.is_empty() {
-                    ui.weak("Ningún mando conectado.");
-                }
-                for (player, name) in PLAYERS.iter().zip(&names) {
-                    ui.label(format!("{}: {name}", player_label(*player)));
-                }
-            });
-        self.show_controls = open;
-    }
-
     /// Ventana con el último error, hasta que el usuario la cierra.
     fn error_window(&mut self, ctx: &egui::Context) {
         let Some(message) = &self.error else {
@@ -244,26 +194,4 @@ fn label(painter: &egui::Painter, position: egui::Pos2, anchor: Align2, text: &s
         Color32::from_black_alpha(190),
     );
     painter.galley(rect.min, galley, Color32::WHITE);
-}
-
-/// Nombre de un botón para la interfaz.
-const fn button_label(button: Button) -> &'static str {
-    match button {
-        Button::Up => "Arriba",
-        Button::Down => "Abajo",
-        Button::Left => "Izquierda",
-        Button::Right => "Derecha",
-        Button::A => "A",
-        Button::B => "B",
-        Button::Select => "Select",
-        Button::Start => "Start",
-    }
-}
-
-/// Nombre de un jugador para la interfaz.
-const fn player_label(player: Player) -> &'static str {
-    match player {
-        Player::One => "Jugador 1",
-        Player::Two => "Jugador 2",
-    }
 }

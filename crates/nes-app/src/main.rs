@@ -11,6 +11,7 @@ mod clock;
 mod config;
 mod input;
 mod rom;
+mod settings;
 mod storage;
 mod ui;
 mod video;

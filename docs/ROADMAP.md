@@ -13,7 +13,7 @@ Cada fila es una rama `feature/*` que se integra en `develop` con su pull reques
 | ✅ | `feature/input` | Teclado para dos jugadores y mandos |
 | ✅ | `feature/audio` | Salida de sonido, volumen y silencio |
 | ✅ | `feature/emulation-controls` | Pausa, reset, avance rápido, save states, guardado de batería |
-| ⬜ | `feature/settings` | Ajustes: teclas, escala, pantalla completa; persistencia |
+| ✅ | `feature/settings` | Ajustes: teclas, escala, pantalla completa; persistencia |
 | ⬜ | `feature/web-wasm` | Versión web con `trunk` |
 
 ## Más adelante
