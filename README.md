@@ -25,6 +25,8 @@ La emulación la aporta [`tetanes-core`](https://crates.io/crates/tetanes-core),
 
 **Con el ejecutable:** descarga el de tu sistema desde [Releases](https://github.com/DEIMER-PY/replica-NES/releases) y ábrelo. No necesita instalación.
 
+El paso a paso para cada sistema operativo, los requisitos mínimos y dónde conseguir juegos están en [docs/INSTALACION.md](docs/INSTALACION.md).
+
 **Desde el código fuente.** Requisitos: [Rust](https://rustup.rs) estable (ver `rust-toolchain.toml`) y, en Windows, las C++ Build Tools de Visual Studio.
 
 ```sh
@@ -57,6 +59,7 @@ trunk serve
 
 | Documento | Contenido |
 |---|---|
+| [docs/INSTALACION.md](docs/INSTALACION.md) | Instalación en Windows, Linux y macOS, requisitos mínimos y dónde conseguir ROMs |
 | [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | Crates, responsabilidades y flujo de un frame |
 | [docs/HARDWARE-NES.md](docs/HARDWARE-NES.md) | Cómo funciona la NES: CPU, PPU, APU, mappers, formato iNES |
 | [docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md) | Entorno, flujo de ramas y convención de commits |

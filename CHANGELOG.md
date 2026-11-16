@@ -9,6 +9,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 - `nes-app`: reasignación de los botones del mando por jugador en **Ajustes → Controles**, también para botones que el sistema no reconoce (mandos genéricos).
 
+- `docs/INSTALACION.md`: instalación por sistema operativo, requisitos mínimos y dónde conseguir ROMs.
 - `nes-core`: `skip_frame` y `run_frame_silent`, que emulan un frame sin generar imagen o sonido.
 - `nes-core`: ejemplo `bench` para medir la velocidad de emulación.
 - CI: workflow `release` que compila los ejecutables de Windows y Linux y los adjunta a la release al subir un tag.
