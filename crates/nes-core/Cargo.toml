@@ -12,3 +12,5 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+tetanes-core = "0.17"
+thiserror = "2"
