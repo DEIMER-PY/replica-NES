@@ -8,6 +8,7 @@
 mod app;
 mod clock;
 mod config;
+mod input;
 mod rom;
 mod video;
 
