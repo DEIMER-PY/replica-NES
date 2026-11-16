@@ -2,7 +2,7 @@
 
 Cada fila es una rama `feature/*` que se integra en `develop` con su pull request.
 
-## v0.1.0
+## v0.1.0 — publicada el 2026-11-16
 
 | Estado | Rama | Funcionalidad |
 |---|---|---|
@@ -15,6 +15,16 @@ Cada fila es una rama `feature/*` que se integra en `develop` con su pull reques
 | ✅ | `feature/emulation-controls` | Pausa, reset, avance rápido, save states, guardado de batería |
 | ✅ | `feature/settings` | Ajustes: teclas, escala, pantalla completa; persistencia |
 | ✅ | `feature/web-wasm` | Versión web con `trunk` |
+
+## Pendiente de validar
+
+La v0.1.0 se verificó con la ROM de demostración del proyecto. Falta probar con hardware y juegos reales:
+
+- Juegos comerciales u homebrew con scroll, sprites y distintos mappers.
+- Guardado de batería con un juego que lo use.
+- Mandos físicos.
+- Sonido en la versión web y navegadores distintos de Chromium.
+- Linux y macOS (la CI compila y pasa los tests en Linux, pero la app no se ha ejecutado allí).
 
 ## Más adelante
 
