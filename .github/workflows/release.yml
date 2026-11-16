@@ -1,0 +1,60 @@
+name: Release
+
+# Al subir un tag `vX.Y.Z` compila los ejecutables y los adjunta a la release de GitHub.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # La release se crea una sola vez, antes de que los dos builds intenten adjuntar.
+  release:
+    name: Crear la release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ github.ref_name }}" >/dev/null 2>&1 \
+            || gh release create "${{ github.ref_name }}" --title "${{ github.ref_name }}" --generate-notes
+
+  build:
+    name: ${{ matrix.name }}
+    needs: release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+            binary: nes-app.exe
+            asset: replica-NES-${{ github.ref_name }}-windows-x64.exe
+          - name: Linux x64
+            os: ubuntu-latest
+            binary: nes-app
+            asset: replica-NES-${{ github.ref_name }}-linux-x64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencias de sistema (audio, mandos, ventana)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev libgtk-3-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build -p nes-app --release
+      - name: Renombrar el ejecutable
+        shell: bash
+        run: cp "target/release/${{ matrix.binary }}" "${{ matrix.asset }}"
+      - name: Adjuntar a la release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.ref_name }}" "${{ matrix.asset }}" --clobber

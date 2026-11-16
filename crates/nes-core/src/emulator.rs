@@ -2,7 +2,7 @@
 
 use tetanes_core::{
     common::{NesRegion, ResetKind as CoreResetKind},
-    control_deck::{Config, ControlDeck},
+    control_deck::{Config, ControlDeck, HeadlessMode},
     input::{JoypadBtn, Player as CorePlayer},
     video::VideoFilter,
 };
@@ -185,9 +185,39 @@ impl Emulator {
     ///
     /// Si no hay ROM cargada o la CPU encuentra un opcode inválido.
     pub fn run_frame(&mut self) -> Result<(), Error> {
+        self.clock(HeadlessMode::empty())
+    }
+
+    /// Emula un frame sin generar sonido: [`Emulator::audio_samples`] queda vacío.
+    ///
+    /// Para el avance rápido, donde el sonido se descarta: el juego avanza igual y la
+    /// imagen se genera, pero se ahorra el trabajo de mezclar el audio.
+    ///
+    /// # Errors
+    ///
+    /// Los mismos que [`Emulator::run_frame`].
+    pub fn run_frame_silent(&mut self) -> Result<(), Error> {
+        self.clock(HeadlessMode::NO_AUDIO)
+    }
+
+    /// Emula un frame sin generar imagen ni sonido.
+    ///
+    /// Para los frames que no se van a mostrar (avance rápido): el juego avanza
+    /// exactamente igual, pero [`Emulator::frame`] conserva la imagen anterior.
+    ///
+    /// # Errors
+    ///
+    /// Los mismos que [`Emulator::run_frame`].
+    pub fn skip_frame(&mut self) -> Result<(), Error> {
+        self.clock(HeadlessMode::NO_AUDIO | HeadlessMode::NO_VIDEO)
+    }
+
+    /// Emula un frame omitiendo las salidas que indique `skip`.
+    fn clock(&mut self, skip: HeadlessMode) -> Result<(), Error> {
         if self.rom.is_none() {
             return Err(Error::NoRom);
         }
+        self.deck.set_headless_mode(skip);
         self.deck
             .clock_frame()
             .map(|_| ())

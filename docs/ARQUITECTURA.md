@@ -52,6 +52,8 @@ Ventajas de esta separación:
 | `load_rom(nombre, bytes)` | Carga una ROM iNES / NES 2.0 desde memoria y devuelve su `RomInfo` |
 | `unload_rom()` | Extrae el cartucho |
 | `run_frame()` | Emula un frame completo de vídeo y su audio |
+| `run_frame_silent()` | Emula un frame con imagen pero sin generar sonido |
+| `skip_frame()` | Emula un frame sin generar imagen ni sonido (el juego avanza igual) |
 | `frame()` | Imagen del último frame: 256×240 RGBA |
 | `audio_samples()` | Muestras mono `f32` del último frame |
 | `set_sample_rate(hz)` | Ajusta el audio a la frecuencia del dispositivo de salida |
@@ -91,16 +93,17 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 | `main.rs` | Punto de entrada nativo: crea la ventana y arranca `NesApp` |
 | `app.rs` | `NesApp` (estado y lógica), `Action` (órdenes del usuario) y sus atajos; implementa `eframe::App` |
 | `ui.rs` | Interfaz: barra de menús, textos sobre la imagen y ventanas |
+| `home.rs` | Pantalla de inicio (sin juego cargado): botones para abrir, biblioteca, recientes y aviso al arrastrar un archivo |
 | `clock.rs` | `FrameClock`: cuántos frames de la NES tocan en cada repintado |
 | `video.rs` | `Screen` (textura del frame) y `fit_rect` (colocación y escalado) |
-| `rom.rs` | `RomFile` (lectura de una ROM del disco) y `RecentRoms` (lista de recientes) |
+| `rom.rs` | `RomFile` (lectura de una ROM del disco), `RecentRoms` (lista de recientes) y `scan_library` (juegos de una carpeta) |
 | `config.rs` | `Config`: ajustes persistentes, guardados con el almacenamiento de `eframe` |
 | `audio.rs` | `AudioOutput`: salida de sonido con `cpal` y cola de muestras |
 | `settings.rs` | Ventana de ajustes (controles, vídeo, audio) y reasignación de teclas |
 | `storage_web.rs` | Versión web de `SaveStore`, sobre `localStorage` |
 | `web.rs` | Solo web: `RomInbox`, lectura asíncrona de ROMs (ver [WEB.md](WEB.md)) |
 | `storage.rs` | `SaveStore`: partidas con batería y save states en disco |
-| `input.rs` | `KeyBindings` (teclado), `Gamepads` (mandos con `gilrs`) y `PadState` (botones pulsados) |
+| `input.rs` | `KeyBindings` (teclado), `PadBindings` y `Gamepads` (mandos con `gilrs`) y `PadState` (botones pulsados) |
 
 ### Ciclo de la app
 
@@ -134,7 +137,19 @@ Las teclas reservadas se derivan de la tabla de atajos, así que un atajo nuevo 
 ### Pausa y avance rápido
 
 - **Pausa:** no se emula y se reinicia `FrameClock`, para que al reanudar no se intente recuperar el tiempo que duró la pausa.
-- **Avance rápido:** mientras se mantiene `F`, `FrameClock` trabaja a ×4 con un tope de 8 frames por repintado. El audio no se encola, porque sonaría acelerado y desbordaría la cola.
+- **Avance rápido:** mientras se mantiene `F`, `FrameClock` trabaja a ×4 con un tope de 8 frames por repintado. El audio no se genera, porque sonaría acelerado y desbordaría la cola. De los frames de cada repintado solo se dibuja el último (`run_frame_silent`); los anteriores se emulan con `skip_frame`.
+- **En reposo:** en pausa o sin juego la ventana no se repinta de forma continua, sino cada 50 ms, lo justo para atender a los mandos y retirar los avisos. Así la app no ocupa la CPU ni la gráfica mientras espera.
+
+### Rendimiento
+
+Una NES real produce unos 60 frames por segundo; el core emula varios cientos en un equipo actual, así que el margen es amplio. Para medirlo sin ventana ni sonido:
+
+```sh
+cargo run -p nes-core --release --example bench                 # ROM de demostración
+cargo run -p nes-core --release --example bench -- juego.nes    # una ROM propia
+```
+
+El perfil `release` de `Cargo.toml` está ajustado con esa medición: LTO completo, una sola unidad de generación de código y `panic = "abort"` dan un 16 % más de velocidad que LTO «thin» (de unos 655 a unos 760 frames por segundo con la demo en el equipo de desarrollo), a cambio de una compilación más lenta. El ejecutable se genera además sin símbolos de depuración.
 
 ### Partidas y estados guardados
 
@@ -175,7 +190,8 @@ mandos  ──► Gamepads::read    ──► [PadState; 2] ─┘
 - **Estado, no eventos.** Se pregunta qué teclas están pulsadas ahora, en lugar de procesar pulsaciones y sueltas. Así no se pierde ningún cambio aunque un repintado emule varios frames.
 - **El teclado se cede a la interfaz.** Si `egui` está usando el teclado, o hay `Ctrl`/`Alt` pulsado, no se envía nada al juego.
 - **Los mandos son opcionales.** Si `gilrs` no puede inicializarse, la app sigue funcionando solo con teclado.
-- **Teclas configurables.** `KeyBindings` forma parte de `Config` y se guarda en disco.
+- **Teclas y botones configurables.** `KeyBindings` (teclado) y `PadBindings` (mandos) forman parte de `Config` y se guardan en disco.
+- **Botones de mando por posición o por código.** Un `PadInput` es un botón que `gilrs` sabe situar (`Button::South`, `Start`...) o, en mandos genéricos sin mapeo conocido, el código nativo que envía el mando. `Gamepads::poll` consume los eventos una vez por repintado: actualiza el estado que lee `Gamepads::read` y anota las pulsaciones nuevas, que usa la ventana de ajustes para reasignar un botón.
 
 ### Audio
 

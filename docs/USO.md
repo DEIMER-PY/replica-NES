@@ -1,25 +1,47 @@
 # Uso
 
-> La app está en construcción. Este documento se completa con cada funcionalidad.
-
 ## Ejecutar
+
+Con el ejecutable (`nes-app.exe` en Windows): doble clic. No necesita instalación ni terminal.
+
+Desde el código fuente:
 
 ```sh
 cargo run -p nes-app --release
 ```
 
-Sin argumentos se abre con la **ROM de demostración** incluida en el proyecto: una pantalla azul que confirma que la emulación y el vídeo funcionan.
+## Pantalla de inicio
+
+Al abrir la app sin juego aparece la pantalla de inicio, con todo lo necesario para empezar:
+
+| Elemento | Qué hace |
+|---|---|
+| **Abrir ROM…** | Abre el diálogo del sistema para elegir un archivo `.nes` |
+| **Carpeta de juegos…** | Elige la carpeta donde guardas tus juegos; se recuerda entre sesiones |
+| **Probar la demo** | Carga la ROM de demostración incluida en el proyecto |
+| **Biblioteca** | Lista los archivos `.nes` de la carpeta de juegos y de sus subcarpetas (hasta 3 niveles), por orden alfabético. Un clic abre el juego |
+| **Actualizar** | Vuelve a leer la carpeta, por si has añadido juegos con la app abierta |
+| **Recientes** | Las últimas 8 ROMs abiertas, también con un clic |
+
+Además, se puede arrastrar un archivo `.nes` a la ventana en cualquier momento: mientras se arrastra, la ventana indica «Suelta el archivo para abrirlo».
+
+**Archivo → Cerrar ROM e ir al inicio** vuelve a esta pantalla.
+
+No hay pantalla de carga porque no hay espera: un juego de NES ocupa entre 24 KB y 1 MB y se carga en menos de un milisegundo.
+
+La **ROM de demostración** es una pantalla azul que pasa a rojo, con un tono, mientras se mantiene el botón A (`X`). Confirma que la emulación, el vídeo, los controles y el sonido funcionan.
 
 ## Cargar una ROM
 
 | Forma | Cómo |
 |---|---|
+| Pantalla de inicio | Botón **Abrir ROM…** o un clic en un juego de la biblioteca o de recientes |
 | Menú | **Archivo → Abrir ROM…** (`Ctrl+O`) |
 | Arrastrar y soltar | Suelta un archivo `.nes` sobre la ventana |
 | Línea de comandos | `cargo run -p nes-app --release -- ruta/al/juego.nes` |
 | Recientes | **Archivo → Recientes** guarda las últimas 8 ROMs abiertas |
 
-El título de la ventana muestra el nombre de la ROM cargada. **Archivo → Cerrar ROM** extrae el cartucho y **Archivo → Cargar demo** vuelve a la demostración.
+El título de la ventana muestra el nombre de la ROM cargada. **Archivo → Cerrar ROM e ir al inicio** extrae el cartucho y **Archivo → Cargar demo** abre la demostración.
 
 Si el archivo no es una ROM válida o usa un mapper no soportado, aparece una ventana de error con el motivo.
 
@@ -61,6 +83,15 @@ Los mandos USB o Bluetooth se detectan solos, también si se conectan con la app
 | A | Botón inferior (A en Xbox, ✕ en PlayStation) |
 | B | Botón izquierdo (X en Xbox, □ en PlayStation) |
 | Select / Start | Select / Start |
+
+Son los botones por defecto. Se cambian en **Archivo → Ajustes… → Controles**, en la tabla **Mandos**: se hace clic en el botón de la tabla y se pulsa el nuevo en el mando de ese jugador. `Escape` cancela.
+
+- Cada jugador tiene su propia tabla, y solo se puede editar con su mando conectado.
+- Si el botón nuevo ya estaba asignado, los dos intercambian su sitio.
+- El stick izquierdo siempre funciona como dirección, además de los botones asignados.
+- **Restaurar botones por defecto** vuelve a la tabla de arriba.
+
+En los **mandos genéricos** el sistema a veces no sabe qué botón es cada uno, y pueden salir cambiados de sitio. Se arregla reasignándolos; los botones sin posición conocida aparecen en la tabla como `Código …`.
 
 Con la ROM de demostración se puede comprobar: al mantener el botón A del jugador 1 la pantalla pasa de azul a rojo.
 
@@ -117,7 +148,7 @@ La imagen se centra y se escala al redimensionar la ventana. Las opciones están
 
 ## Configuración
 
-La lista de recientes, las teclas y las opciones de imagen y sonido se guardan automáticamente y se recuperan al abrir la app. En Windows el archivo está en `%APPDATA%\replica-NES\data\app.ron`.
+La lista de recientes, las teclas, los botones de mando y las opciones de imagen y sonido se guardan automáticamente y se recuperan al abrir la app. En Windows el archivo está en `%APPDATA%\replica-NES\data\app.ron`.
 
 ## Solución de problemas
 

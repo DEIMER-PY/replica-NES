@@ -16,9 +16,14 @@ impl NesApp {
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)
             .show(ui, |ui| {
-                self.screen.show(ui, self.config.scaling());
+                if self.has_rom() {
+                    self.screen.show(ui, self.config.scaling());
+                } else {
+                    self.home(ui);
+                }
                 self.overlays(ui);
             });
+        Self::drop_hint(ui);
 
         self.settings_window(ui.ctx());
         self.error_window(ui.ctx());
@@ -43,10 +48,13 @@ impl NesApp {
                 self.action_button(ui, "Abrir ROM…", Action::OpenRom, true);
                 // Las ROMs recientes son rutas de disco, que en la web no existen.
                 #[cfg(not(target_arch = "wasm32"))]
-                self.recent_menu(ui);
+                {
+                    self.action_button(ui, "Carpeta de juegos…", Action::ChooseRomDir, true);
+                    self.recent_menu(ui);
+                }
                 ui.separator();
                 self.action_button(ui, "Cargar demo", Action::LoadDemo, true);
-                self.action_button(ui, "Cerrar ROM", Action::CloseRom, has_rom);
+                self.action_button(ui, "Cerrar ROM e ir al inicio", Action::CloseRom, has_rom);
                 ui.separator();
                 self.action_button(ui, "Ajustes…", Action::OpenSettings, true);
                 // En la web no hay ventana que cerrar: se cierra la pestaña.
@@ -127,20 +135,10 @@ impl NesApp {
         });
     }
 
-    /// Textos sobre la imagen: ayuda sin ROM, estado de la emulación y avisos.
+    /// Textos sobre la imagen: estado de la emulación y avisos.
     fn overlays(&mut self, ui: &egui::Ui) {
         let area = ui.max_rect();
         let painter = ui.painter();
-
-        if !self.has_rom() {
-            painter.text(
-                area.center(),
-                Align2::CENTER_CENTER,
-                "Arrastra una ROM (.nes) aquí o usa Archivo → Abrir ROM…",
-                egui::FontId::proportional(16.0),
-                Color32::GRAY,
-            );
-        }
 
         let status = if self.paused {
             Some("PAUSA")

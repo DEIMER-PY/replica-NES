@@ -23,7 +23,11 @@ La emulación la aporta [`tetanes-core`](https://crates.io/crates/tetanes-core),
 
 ## Inicio rápido
 
-Requisitos: [Rust](https://rustup.rs) estable (ver `rust-toolchain.toml`) y, en Windows, las C++ Build Tools de Visual Studio.
+**Con el ejecutable:** descarga el de tu sistema desde [Releases](https://github.com/DEIMER-PY/replica-NES/releases) y ábrelo. No necesita instalación.
+
+El paso a paso para cada sistema operativo, los requisitos mínimos y dónde conseguir juegos están en [docs/INSTALACION.md](docs/INSTALACION.md).
+
+**Desde el código fuente.** Requisitos: [Rust](https://rustup.rs) estable (ver `rust-toolchain.toml`) y, en Windows, las C++ Build Tools de Visual Studio.
 
 ```sh
 git clone https://github.com/DEIMER-PY/replica-NES.git
@@ -43,8 +47,9 @@ trunk serve
 ## Funcionalidades
 
 - Emulación de CPU, PPU, APU y más de 30 mappers mediante `tetanes-core`.
+- Pantalla de inicio con biblioteca de juegos: elige tu carpeta de ROMs y ábrelas con un clic.
 - Carga de ROMs por menú, arrastrar y soltar, línea de comandos y lista de recientes.
-- Teclado para dos jugadores con teclas reasignables, y mandos USB o Bluetooth.
+- Teclado para dos jugadores y mandos USB o Bluetooth, con teclas y botones reasignables.
 - Sonido con volumen y silencio.
 - Pausa, reinicio, avance rápido ×4 y save states en 4 ranuras.
 - Guardado automático de las partidas con batería.
@@ -55,6 +60,7 @@ trunk serve
 
 | Documento | Contenido |
 |---|---|
+| [docs/INSTALACION.md](docs/INSTALACION.md) | Instalación en Windows, Linux y macOS, requisitos mínimos y dónde conseguir ROMs |
 | [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | Crates, responsabilidades y flujo de un frame |
 | [docs/HARDWARE-NES.md](docs/HARDWARE-NES.md) | Cómo funciona la NES: CPU, PPU, APU, mappers, formato iNES |
 | [docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md) | Entorno, flujo de ramas y convención de commits |

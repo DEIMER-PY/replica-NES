@@ -19,7 +19,11 @@ cargo run -p nes-app --release       # ejecutar optimizada
 cargo test --workspace               # tests
 cargo fmt --all                      # formatear
 cargo clippy --workspace --all-targets -- -D warnings   # lints
+cargo build -p nes-app --release     # generar el ejecutable: target/release/nes-app(.exe)
+cargo run -p nes-core --release --example bench          # medir la velocidad del core
 ```
+
+El perfil `release` usa LTO completo: la primera compilación tarda bastantes minutos. Para el día a día basta `cargo run -p nes-app`.
 
 El core de emulación (`tetanes-core` y `nes-core`) se compila optimizado incluso en modo desarrollo (ver `[profile.dev.package.*]` en `Cargo.toml`), porque sin optimizar no alcanza la velocidad real. El resto de dependencias no, para que compilar sea rápido.
 
@@ -37,6 +41,8 @@ feature/* ← una rama por funcionalidad, sale de develop y vuelve a develop
 4. `git push -u origin feature/<nombre>` y `gh pr create --base develop`.
 5. Con la CI en verde, merge a `develop` (merge commit, se conserva el historial de la feature).
 6. Para publicar: PR de `develop` a `main` y tag `vX.Y.Z`.
+
+Al subir el tag, el workflow `.github/workflows/release.yml` compila los ejecutables de Windows y Linux y los adjunta a la release de GitHub (`replica-NES-vX.Y.Z-windows-x64.exe`, `replica-NES-vX.Y.Z-linux-x64`).
 
 Prefijos de rama: `feature/`, `fix/`, `docs/`, `chore/`, `refactor/`.
 

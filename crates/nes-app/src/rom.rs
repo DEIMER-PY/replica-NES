@@ -127,9 +127,99 @@ impl RecentRoms {
     }
 }
 
+/// Niveles de subcarpetas que se recorren al buscar juegos.
+const LIBRARY_DEPTH: usize = 3;
+/// Tope de juegos listados, para que una carpeta enorme no bloquee la app.
+const LIBRARY_MAX: usize = 2000;
+
+/// Un juego de la biblioteca: un archivo `.nes` de la carpeta de juegos.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LibraryEntry {
+    /// Nombre para mostrar: el del archivo sin extensión.
+    pub name: String,
+    pub path: PathBuf,
+    /// Tamaño del archivo en bytes.
+    pub size: u64,
+}
+
+impl LibraryEntry {
+    /// Tamaño en kilobytes, como se muestra en la lista.
+    pub const fn size_kb(&self) -> u64 {
+        self.size.div_ceil(1024)
+    }
+}
+
+/// Busca los archivos `.nes` de `dir` y sus subcarpetas, ordenados por nombre.
+///
+/// Las carpetas o archivos que no se pueden leer se omiten: una biblioteca incompleta
+/// es más útil que un error.
+pub fn scan_library(dir: &Path) -> Vec<LibraryEntry> {
+    let mut entries = Vec::new();
+    scan_dir(dir, LIBRARY_DEPTH, &mut entries);
+    entries.sort_by_cached_key(|entry| entry.name.to_lowercase());
+    entries
+}
+
+fn scan_dir(dir: &Path, depth: usize, entries: &mut Vec<LibraryEntry>) {
+    let Ok(read_dir) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for item in read_dir.flatten() {
+        if entries.len() >= LIBRARY_MAX {
+            return;
+        }
+        let path = item.path();
+        let Ok(metadata) = item.metadata() else {
+            continue;
+        };
+        if metadata.is_dir() {
+            if depth > 0 {
+                scan_dir(&path, depth - 1, entries);
+            }
+        } else if is_rom_path(&path) && metadata.len() <= MAX_ROM_BYTES {
+            entries.push(LibraryEntry {
+                name: display_name(&path),
+                size: metadata.len(),
+                path,
+            });
+        }
+    }
+}
+
+/// Si el archivo tiene extensión `.nes`, sin distinguir mayúsculas.
+fn is_rom_path(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("nes"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn library_lists_roms_sorted_and_ignores_other_files() {
+        let dir = std::env::temp_dir().join("replica-nes-test-library");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("sub")).unwrap();
+        std::fs::write(dir.join("zeta.nes"), [0u8; 2000]).unwrap();
+        std::fs::write(dir.join("Alfa.NES"), [0u8; 10]).unwrap();
+        std::fs::write(dir.join("notas.txt"), b"no es un juego").unwrap();
+        std::fs::write(dir.join("sub").join("beta.nes"), [0u8; 1024]).unwrap();
+
+        let library = scan_library(&dir);
+        std::fs::remove_dir_all(&dir).unwrap();
+
+        let names: Vec<&str> = library.iter().map(|entry| entry.name.as_str()).collect();
+        assert_eq!(names, ["Alfa", "beta", "zeta"]);
+        assert_eq!(library[1].path, dir.join("sub").join("beta.nes"));
+        let sizes: Vec<u64> = library.iter().map(LibraryEntry::size_kb).collect();
+        assert_eq!(sizes, [1, 1, 2]);
+    }
+
+    #[test]
+    fn library_of_a_missing_folder_is_empty() {
+        assert!(scan_library(Path::new("no-existe-esta-carpeta-12345")).is_empty());
+    }
 
     fn paths(recent: &RecentRoms) -> Vec<&str> {
         recent.iter().map(|path| path.to_str().unwrap()).collect()

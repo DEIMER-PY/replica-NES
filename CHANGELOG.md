@@ -5,6 +5,28 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [0.2.0] - 2026-11-16
+
+Pantalla de inicio con biblioteca, botones de mando reasignables, más rendimiento y ejecutables descargables.
+
+### Añadido
+
+- `nes-app`: pantalla de inicio con botones para abrir una ROM, biblioteca de la carpeta de juegos, recientes y aviso al arrastrar un archivo.
+- `nes-app`: reasignación de los botones del mando por jugador en **Ajustes → Controles**, también para botones que el sistema no reconoce (mandos genéricos).
+
+- `docs/INSTALACION.md`: instalación por sistema operativo, requisitos mínimos y dónde conseguir ROMs.
+- `nes-core`: `skip_frame` y `run_frame_silent`, que emulan un frame sin generar imagen o sonido.
+- `nes-core`: ejemplo `bench` para medir la velocidad de emulación.
+- CI: workflow `release` que compila los ejecutables de Windows y Linux y los adjunta a la release al subir un tag.
+
+### Cambiado
+
+- `nes-app`: sin ROM en la línea de comandos, la app arranca en la pantalla de inicio en lugar de cargar la demo.
+- `nes-app`: la ventana de ajustes se desplaza si no cabe en la ventana de la app.
+- Perfil `release` con LTO completo y `panic = "abort"`: un 16 % más rápido en el benchmark, y ejecutable sin símbolos.
+- `nes-app`: el avance rápido solo dibuja el último frame de cada repintado y no genera audio.
+- `nes-app`: en pausa o sin juego la ventana deja de repintarse de forma continua, para no ocupar la CPU ni la gráfica.
+
 ## [0.1.0] - 2026-11-16
 
 Primera versión: emulador jugable en escritorio y en el navegador.

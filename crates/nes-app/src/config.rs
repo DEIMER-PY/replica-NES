@@ -5,7 +5,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{input::KeyBindings, rom::RecentRoms, video::Scaling};
+use crate::{
+    input::{KeyBindings, PadBindings},
+    rom::RecentRoms,
+    video::Scaling,
+};
 
 /// Clave bajo la que se guarda la configuración.
 const STORAGE_KEY: &str = "config";
@@ -16,12 +20,16 @@ const STORAGE_KEY: &str = "config";
 pub struct Config {
     /// ROMs abiertas recientemente.
     pub recent_roms: RecentRoms,
+    /// Carpeta de juegos que se lista en la pantalla de inicio.
+    pub rom_dir: Option<std::path::PathBuf>,
     /// Escalar la imagen solo en múltiplos enteros.
     pub integer_scaling: bool,
     /// Mostrar la imagen con la proporción de un televisor (píxeles 8:7).
     pub tv_aspect: bool,
     /// Teclas asignadas a los mandos.
     pub key_bindings: KeyBindings,
+    /// Botones de mando asignados a los mandos de la NES.
+    pub pad_bindings: PadBindings,
     /// Volumen del sonido, de 0 a 100.
     pub volume: u8,
     /// Sonido silenciado.
@@ -32,9 +40,11 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             recent_roms: RecentRoms::default(),
+            rom_dir: None,
             integer_scaling: true,
             tv_aspect: false,
             key_bindings: KeyBindings::default(),
+            pad_bindings: PadBindings::default(),
             volume: 80,
             muted: false,
         }

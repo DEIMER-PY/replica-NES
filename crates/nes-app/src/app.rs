@@ -13,7 +13,7 @@ use crate::{
     clock::{FrameClock, MAX_FRAMES_PER_UPDATE},
     config::Config,
     input::{Gamepads, PLAYERS},
-    rom::RomFile,
+    rom::{LibraryEntry, RomFile, scan_library},
     settings::SettingsWindow,
     storage::{SaveKind, SaveStore},
     video::Screen,
@@ -36,6 +36,9 @@ const FAST_FORWARD_MAX_FRAMES: u32 = 8;
 /// audio: ±0,5 %, imperceptible.
 const MAX_RATE_CORRECTION: f64 = 0.005;
 
+/// Cada cuánto se repinta la ventana cuando no se está emulando (pausa o sin juego).
+const IDLE_REPAINT: std::time::Duration = std::time::Duration::from_millis(50);
+
 /// Segundos que permanece en pantalla un aviso.
 const TOAST_SECONDS: f64 = 2.0;
 
@@ -43,6 +46,10 @@ const TOAST_SECONDS: f64 = 2.0;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     OpenRom,
+    /// Elegir la carpeta de juegos de la biblioteca.
+    ChooseRomDir,
+    /// Volver a leer la carpeta de juegos.
+    RefreshLibrary,
     LoadDemo,
     CloseRom,
     Quit,
@@ -122,6 +129,8 @@ pub struct NesApp {
     /// ROMs que el navegador termina de leer en segundo plano.
     #[cfg(target_arch = "wasm32")]
     rom_inbox: crate::web::RomInbox,
+    /// Juegos de la carpeta elegida, que lista la pantalla de inicio.
+    pub(crate) library: Vec<LibraryEntry>,
     saves: SaveStore,
     /// Identificador de la ROM cargada, con el que se nombran sus archivos guardados.
     rom_id: Option<String>,
@@ -141,7 +150,7 @@ pub struct NesApp {
 }
 
 impl NesApp {
-    /// Crea la app. Carga `initial_rom` si se indica; si no, la ROM de demostración.
+    /// Crea la app. Carga `initial_rom` si se indica; si no, muestra la pantalla de inicio.
     pub fn new(cc: &eframe::CreationContext<'_>, initial_rom: Option<PathBuf>) -> Self {
         let mut app = Self {
             emulator: Emulator::new(),
@@ -154,6 +163,7 @@ impl NesApp {
             audio_pending: true,
             #[cfg(target_arch = "wasm32")]
             rom_inbox: crate::web::RomInbox::default(),
+            library: Vec::new(),
             saves: SaveStore::for_app(APP_NAME),
             rom_id: None,
             battery_on_disk: None,
@@ -168,9 +178,10 @@ impl NesApp {
         // primera pulsación del usuario: los navegadores bloquean el audio hasta entonces.
         #[cfg(not(target_arch = "wasm32"))]
         app.open_audio();
-        match initial_rom {
-            Some(path) => app.open_path(&cc.egui_ctx, &path),
-            None => app.perform(&cc.egui_ctx, Action::LoadDemo),
+        app.refresh_library();
+        // Sin ROM en la línea de comandos se arranca en la pantalla de inicio.
+        if let Some(path) = initial_rom {
+            app.open_path(&cc.egui_ctx, &path);
         }
         app
     }
@@ -179,6 +190,8 @@ impl NesApp {
     pub fn perform(&mut self, ctx: &egui::Context, action: Action) {
         match action {
             Action::OpenRom => self.open_dialog(ctx),
+            Action::ChooseRomDir => self.choose_rom_dir(),
+            Action::RefreshLibrary => self.refresh_library(),
             Action::LoadDemo => {
                 let demo = RomFile::from_bytes("demo.nes", nes_core::demo_rom());
                 self.load_rom(ctx, &demo);
@@ -317,7 +330,34 @@ impl NesApp {
         self.rom_inbox.pick_file();
     }
 
-    /// Guarda la partida, extrae el cartucho y deja la pantalla vacía.
+    /// Muestra el diálogo del sistema para elegir la carpeta de juegos.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn choose_rom_dir(&mut self) {
+        let mut dialog = rfd::FileDialog::new().set_title("Carpeta de juegos");
+        if let Some(current) = &self.config.rom_dir {
+            dialog = dialog.set_directory(current);
+        }
+        if let Some(dir) = dialog.pick_folder() {
+            self.config.rom_dir = Some(dir);
+            self.refresh_library();
+        }
+    }
+
+    /// En la web no hay carpetas: el navegador solo entrega archivos sueltos.
+    #[cfg(target_arch = "wasm32")]
+    fn choose_rom_dir(&mut self) {}
+
+    /// Vuelve a leer la carpeta de juegos.
+    fn refresh_library(&mut self) {
+        self.library = self
+            .config
+            .rom_dir
+            .as_deref()
+            .map(scan_library)
+            .unwrap_or_default();
+    }
+
+    /// Guarda la partida, extrae el cartucho y vuelve a la pantalla de inicio.
     fn close_rom(&mut self, ctx: &egui::Context) {
         self.flush_battery();
         self.emulator.unload_rom();
@@ -466,13 +506,15 @@ impl NesApp {
 
     /// Pasa al emulador el estado de teclado y mandos.
     fn apply_input(&mut self, ctx: &egui::Context) {
-        let keyboard = if self.settings.is_capturing() {
-            // La tecla que se está asignando no debe llegar al juego.
+        // La tecla o el botón que se está asignando no debe llegar al juego.
+        let (keyboard, gamepads) = if self.settings.is_capturing() {
             Default::default()
         } else {
-            self.config.key_bindings.read(ctx)
+            (
+                self.config.key_bindings.read(ctx),
+                self.gamepads.read(&self.config.pad_bindings),
+            )
         };
-        let gamepads = self.gamepads.read();
         for (index, player) in PLAYERS.into_iter().enumerate() {
             let pad = keyboard[index].merge(gamepads[index]);
             for button in Button::ALL {
@@ -515,13 +557,22 @@ impl NesApp {
         let frames = self.clock.frames_due(now, frame_rate, max_frames);
         self.apply_input(ctx);
 
-        for _ in 0..frames {
-            if let Err(err) = self.emulator.run_frame() {
+        for frame in 1..=frames {
+            let result = if !self.fast_forward {
+                self.emulator.run_frame()
+            } else if frame < frames {
+                // En avance rápido solo se ve el último frame de cada repintado: los
+                // anteriores se emulan sin dibujar.
+                self.emulator.skip_frame()
+            } else {
+                // El sonido iría acelerado y desbordaría la cola: no se genera.
+                self.emulator.run_frame_silent()
+            };
+            if let Err(err) = result {
                 self.close_rom(ctx);
                 self.error = Some(err.to_string());
                 return;
             }
-            // En avance rápido el sonido iría acelerado y desbordaría la cola: se omite.
             if !self.fast_forward
                 && let Some(audio) = &self.audio
             {
@@ -541,11 +592,19 @@ impl eframe::App for NesApp {
             self.open_audio_on_user_gesture(ctx);
             self.receive_roms(ctx);
         }
+        self.gamepads.poll();
         self.handle_shortcuts(ctx);
         self.handle_dropped_files(ctx);
         self.run_emulation(ctx);
-        // La emulación es continua: se pide repintar siempre, sin esperar a eventos.
-        ctx.request_repaint();
+        if self.has_rom() && !self.paused {
+            // La emulación es continua: se pide repintar siempre, sin esperar a eventos.
+            ctx.request_repaint();
+        } else {
+            // En pausa o sin juego no hay nada que emular. Basta con despertar de vez en
+            // cuando para atender a los mandos y retirar los avisos; así la app no ocupa
+            // la CPU ni la gráfica mientras espera.
+            ctx.request_repaint_after(IDLE_REPAINT);
+        }
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
