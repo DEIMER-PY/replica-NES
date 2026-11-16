@@ -1,0 +1,19 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Build web (trunk)
+/crates/nes-app/dist/
+
+# ROMs y datos de juego: nunca se versionan
+*.nes
+*.fds
+*.sav
+*.state
+
+# Editores y sistema
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
