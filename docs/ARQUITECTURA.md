@@ -94,6 +94,7 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 | `video.rs` | `Screen` (textura del frame) y `fit_rect` (colocación y escalado) |
 | `rom.rs` | `RomFile` (lectura de una ROM del disco) y `RecentRoms` (lista de recientes) |
 | `config.rs` | `Config`: ajustes persistentes, guardados con el almacenamiento de `eframe` |
+| `audio.rs` | `AudioOutput`: salida de sonido con `cpal` y cola de muestras |
 | `input.rs` | `KeyBindings` (teclado), `Gamepads` (mandos con `gilrs`) y `PadState` (botones pulsados) |
 
 ### Ciclo de la app
@@ -132,6 +133,24 @@ mandos  ──► Gamepads::read    ──► [PadState; 2] ─┘
 - **El teclado se cede a la interfaz.** Si `egui` está usando el teclado, o hay `Ctrl`/`Alt` pulsado, no se envía nada al juego.
 - **Los mandos son opcionales.** Si `gilrs` no puede inicializarse, la app sigue funcionando solo con teclado.
 - **Teclas configurables.** `KeyBindings` forma parte de `Config` y se guarda en disco.
+
+### Audio
+
+Hay dos hilos con ritmos distintos: el de la interfaz emula un frame cada ~16 ms y produce de golpe ~800 muestras; el de la tarjeta de sonido (creado por `cpal`) pide bloques pequeños de forma continua. Los une una cola protegida por un `Mutex`:
+
+```
+hilo de la interfaz                              hilo de audio (cpal)
+run_frame() ─► audio_samples() ─► push ─► [ cola ] ─► pop ─► × volumen ─► altavoces
+                                             │
+                          fill_error() ◄─────┘  (ajusta la velocidad de emulación)
+```
+
+- **Frecuencia del dispositivo.** Al arrancar se le pide al emulador que genere a la frecuencia del dispositivo (44,1 o 48 kHz normalmente), así no hace falta remuestrear.
+- **Mono a todos los canales.** La NES es mono; cada muestra se copia a todos los canales del dispositivo.
+- **Latencia objetivo de 60 ms.** La cola tiene un tope de 150 ms; si se supera se descartan las muestras más antiguas, porque es peor que el sonido se retrase respecto a la imagen.
+- **Control dinámico de velocidad.** El reloj de la pantalla y el de la tarjeta de sonido nunca coinciden exactamente, y sin corregirlo la cola acabaría vaciándose (chasquidos) o llenándose (retraso). Según lo llena que esté la cola, la app emula hasta un 0,5 % más rápido o más lento, que no se percibe.
+- **Sin chasquidos al vaciarse.** Si la cola se queda sin muestras, la salida baja suavemente a silencio en lugar de cortar en seco.
+- **El audio es opcional.** Si no se puede abrir el dispositivo, `NesApp::audio` es `None` y todo lo demás funciona.
 
 ### Configuración persistente
 

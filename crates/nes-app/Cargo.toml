@@ -12,6 +12,7 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+cpal = "0.18"
 eframe = { version = "0.37", features = ["persistence"] }
 gilrs = "0.11"
 nes-core = { path = "../nes-core" }
