@@ -100,7 +100,7 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 | `storage_web.rs` | Versión web de `SaveStore`, sobre `localStorage` |
 | `web.rs` | Solo web: `RomInbox`, lectura asíncrona de ROMs (ver [WEB.md](WEB.md)) |
 | `storage.rs` | `SaveStore`: partidas con batería y save states en disco |
-| `input.rs` | `KeyBindings` (teclado), `Gamepads` (mandos con `gilrs`) y `PadState` (botones pulsados) |
+| `input.rs` | `KeyBindings` (teclado), `PadBindings` y `Gamepads` (mandos con `gilrs`) y `PadState` (botones pulsados) |
 
 ### Ciclo de la app
 
@@ -175,7 +175,8 @@ mandos  ──► Gamepads::read    ──► [PadState; 2] ─┘
 - **Estado, no eventos.** Se pregunta qué teclas están pulsadas ahora, en lugar de procesar pulsaciones y sueltas. Así no se pierde ningún cambio aunque un repintado emule varios frames.
 - **El teclado se cede a la interfaz.** Si `egui` está usando el teclado, o hay `Ctrl`/`Alt` pulsado, no se envía nada al juego.
 - **Los mandos son opcionales.** Si `gilrs` no puede inicializarse, la app sigue funcionando solo con teclado.
-- **Teclas configurables.** `KeyBindings` forma parte de `Config` y se guarda en disco.
+- **Teclas y botones configurables.** `KeyBindings` (teclado) y `PadBindings` (mandos) forman parte de `Config` y se guardan en disco.
+- **Botones de mando por posición o por código.** Un `PadInput` es un botón que `gilrs` sabe situar (`Button::South`, `Start`...) o, en mandos genéricos sin mapeo conocido, el código nativo que envía el mando. `Gamepads::poll` consume los eventos una vez por repintado: actualiza el estado que lee `Gamepads::read` y anota las pulsaciones nuevas, que usa la ventana de ajustes para reasignar un botón.
 
 ### Audio
 
