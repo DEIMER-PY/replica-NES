@@ -41,7 +41,13 @@ cargo run -p nes-core --example dump_demo -- demo.nes
 | Select | `Retroceso` | `T` |
 | Start | `Enter` | `Y` |
 
-**Ayuda → Controles** muestra esta tabla dentro de la app, junto con los mandos conectados.
+Son las teclas por defecto. Se cambian en **Archivo → Ajustes… → Controles** (`Ctrl+,`): se hace clic en la tecla de la tabla y se pulsa la nueva. `Escape` cancela.
+
+- Si la tecla nueva ya estaba en otro botón, los dos botones intercambian sus teclas.
+- Las teclas que usa la app como atajo (`P`, `M`, `F`, `F5`, `F8`, `F11`, `1` a `4`) no se pueden asignar.
+- **Restaurar teclas por defecto** vuelve a la tabla de arriba.
+
+La misma pestaña muestra los mandos conectados.
 
 El teclado no llega al juego mientras hay un menú abierto o se mantiene `Ctrl` o `Alt`, para que los atajos de la app no muevan al personaje.
 
@@ -101,11 +107,17 @@ Con la ROM de demostración se puede comprobar: suena un tono mientras se mantie
 
 ## Imagen
 
-La imagen se centra y se escala al redimensionar la ventana. Por defecto solo en múltiplos enteros (×1, ×2, ×3...), para que todos los píxeles midan lo mismo; se cambia en **Ver → Escalado entero**.
+La imagen se centra y se escala al redimensionar la ventana. Las opciones están en el menú **Ver** y en **Ajustes… → Vídeo**:
+
+| Opción | Qué hace |
+|---|---|
+| Escalado entero | Escala solo ×1, ×2, ×3..., para que todos los píxeles midan lo mismo. Activado por defecto |
+| Proporción de televisor (8:7) | Ensancha la imagen como se veía en un televisor de la época, en lugar de píxeles cuadrados |
+| Pantalla completa | `F11` |
 
 ## Configuración
 
-La lista de recientes y las opciones de imagen se guardan automáticamente y se recuperan al abrir la app. En Windows el archivo está en `%APPDATA%\replica-NES\data\app.ron`.
+La lista de recientes, las teclas y las opciones de imagen y sonido se guardan automáticamente y se recuperan al abrir la app. En Windows el archivo está en `%APPDATA%\replica-NES\data\app.ron`.
 
 ## Solución de problemas
 

@@ -96,6 +96,7 @@ Aplicación `eframe` (ventana con `winit`, render con `wgpu`, interfaz con `egui
 | `rom.rs` | `RomFile` (lectura de una ROM del disco) y `RecentRoms` (lista de recientes) |
 | `config.rs` | `Config`: ajustes persistentes, guardados con el almacenamiento de `eframe` |
 | `audio.rs` | `AudioOutput`: salida de sonido con `cpal` y cola de muestras |
+| `settings.rs` | Ventana de ajustes (controles, vídeo, audio) y reasignación de teclas |
 | `storage.rs` | `SaveStore`: partidas con batería y save states en disco |
 | `input.rs` | `KeyBindings` (teclado), `Gamepads` (mandos con `gilrs`) y `PadState` (botones pulsados) |
 
@@ -113,6 +114,20 @@ Al final de `logic` se pide siempre otro repintado (`request_repaint`), porque l
 Menús y atajos de teclado no llaman a la lógica directamente: producen un valor de `Action` (`OpenRom`, `TogglePause`, `Reset(kind)`, `SaveState`, `SelectSlot(n)`...) y `NesApp::perform` lo ejecuta. Así cada orden tiene una sola implementación, y el atajo que muestra el menú es siempre el que de verdad funciona, porque ambos salen de la misma tabla (`Action::SHORTCUTS`).
 
 Los atajos de una sola tecla (`P`, `M`, `F5`...) se ignoran mientras la interfaz usa el teclado, y un test comprueba que ninguno coincide con una tecla de juego por defecto.
+
+### Reasignación de teclas
+
+Al hacer clic en una tecla de la tabla, `SettingsWindow` (en `settings.rs`) entra en modo captura para ese botón. Mientras dura, la app no trata las pulsaciones como atajos ni las envía al juego. La siguiente tecla pulsada pasa por `capture_key`:
+
+| Tecla | Resultado |
+|---|---|
+| `Escape` | Cancela sin cambios |
+| Reservada (`Action::is_reserved_key`) | Se rechaza con un aviso y se sigue esperando |
+| Cualquier otra | `KeyBindings::rebind` la asigna |
+
+`rebind` mantiene un invariante: nunca hay una tecla en dos botones ni un botón sin tecla. Si la tecla ya estaba asignada, los dos botones intercambian sus teclas.
+
+Las teclas reservadas se derivan de la tabla de atajos, así que un atajo nuevo queda protegido sin tocar los ajustes.
 
 ### Pausa y avance rápido
 
