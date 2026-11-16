@@ -1,0 +1,29 @@
+[workspace]
+resolver = "3"
+members = ["crates/nes-core", "crates/nes-app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+repository = "https://github.com/DEIMER-PY/replica-NES"
+authors = ["DEIMER-PY"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+# El core de emulación es intensivo en CPU: se optimiza también en builds de desarrollo
+# para que el emulador corra a velocidad real con `cargo run`.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
