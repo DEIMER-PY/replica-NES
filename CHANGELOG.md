@@ -16,4 +16,5 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - `nes-app`: configuración persistente (recientes y escalado).
 - `nes-app`: controles por teclado para dos jugadores y por mando (`gilrs`); ventana **Ayuda → Controles**.
 - `nes-app`: salida de sonido con `cpal`, volumen y silencio (`M`), y control dinámico de velocidad para mantener el audio sincronizado.
+- `nes-app`: pausa, reinicio, avance rápido ×4, save states en 4 ranuras y guardado automático de la RAM con batería.
 - `nes-core`: ejemplo `dump_demo` para escribir la ROM de demostración en disco.
