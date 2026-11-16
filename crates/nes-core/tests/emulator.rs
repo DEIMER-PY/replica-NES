@@ -143,6 +143,25 @@ fn save_state_round_trip() {
 }
 
 #[test]
+fn battery_ram_round_trip() {
+    // La misma demo, con el bit de batería activado en la cabecera iNES.
+    let mut rom = demo_rom();
+    rom[6] |= 0x02;
+
+    let mut nes = Emulator::new();
+    assert!(nes.load_rom("demo-bateria", &rom).unwrap().battery_backed);
+    let empty = nes
+        .battery_ram()
+        .expect("el cartucho tiene RAM con batería");
+    assert!(!empty.is_empty());
+
+    let saved: Vec<u8> = (0..empty.len()).map(|i| (i % 251) as u8).collect();
+    nes.set_battery_ram(&saved);
+    run(&mut nes, 3);
+    assert_eq!(nes.battery_ram().unwrap(), saved);
+}
+
+#[test]
 fn reset_keeps_running() {
     for kind in [ResetKind::Soft, ResetKind::Hard] {
         let mut nes = booted();
