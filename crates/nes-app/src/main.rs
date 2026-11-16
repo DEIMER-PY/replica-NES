@@ -11,6 +11,8 @@ mod clock;
 mod config;
 mod input;
 mod rom;
+mod storage;
+mod ui;
 mod video;
 
 use std::path::PathBuf;
