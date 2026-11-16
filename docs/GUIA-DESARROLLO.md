@@ -21,7 +21,7 @@ cargo fmt --all                      # formatear
 cargo clippy --workspace --all-targets -- -D warnings   # lints
 ```
 
-Las dependencias se compilan optimizadas incluso en modo desarrollo (ver `[profile.dev.package."*"]` en `Cargo.toml`), porque el core de emulación sin optimizar no alcanza la velocidad real.
+El core de emulación (`tetanes-core` y `nes-core`) se compila optimizado incluso en modo desarrollo (ver `[profile.dev.package.*]` en `Cargo.toml`), porque sin optimizar no alcanza la velocidad real. El resto de dependencias no, para que compilar sea rápido.
 
 ## Flujo de ramas
 

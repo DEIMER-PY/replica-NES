@@ -12,4 +12,5 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
+eframe = "0.37"
 nes-core = { path = "../nes-core" }
