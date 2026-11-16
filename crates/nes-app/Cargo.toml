@@ -12,5 +12,12 @@ authors.workspace = true
 workspace = true
 
 [dependencies]
-eframe = "0.37"
+eframe = { version = "0.37", features = ["persistence"] }
 nes-core = { path = "../nes-core" }
+serde = { version = "1", features = ["derive"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rfd = "0.18"
+
+[dev-dependencies]
+ron = "0.12"
