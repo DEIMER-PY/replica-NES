@@ -87,6 +87,45 @@ fn button_changes_picture() {
 }
 
 #[test]
+fn skipped_frames_advance_the_game_without_drawing() {
+    let mut nes = booted();
+    let idle = solid_color(&mut nes).unwrap();
+
+    nes.set_button(Player::One, Button::A, true);
+    for _ in 0..3 {
+        nes.skip_frame().unwrap();
+    }
+    assert_eq!(
+        solid_color(&mut nes).unwrap(),
+        idle,
+        "un frame omitido no cambia la imagen"
+    );
+    assert!(nes.audio_samples().is_empty(), "ni genera sonido");
+
+    // El juego sí avanzó: el siguiente frame dibujado ya refleja el botón.
+    nes.run_frame().unwrap();
+    let pressed = solid_color(&mut nes).unwrap();
+    assert!(pressed[0] > pressed[2], "fondo rojo: {pressed:?}");
+    assert!(!nes.audio_samples().is_empty());
+}
+
+#[test]
+fn silent_frames_draw_without_sound() {
+    let mut nes = booted();
+    nes.set_button(Player::One, Button::A, true);
+    for _ in 0..3 {
+        nes.run_frame_silent().unwrap();
+    }
+    let pressed = solid_color(&mut nes).unwrap();
+    assert!(pressed[0] > pressed[2], "fondo rojo: {pressed:?}");
+    assert!(nes.audio_samples().is_empty());
+
+    // Al volver a los frames normales, el sonido vuelve.
+    run(&mut nes, 10);
+    assert!(peak(nes.audio_samples()) > 0.01);
+}
+
+#[test]
 fn other_inputs_do_not_trigger() {
     let mut nes = booted();
     let idle = solid_color(&mut nes).unwrap();
