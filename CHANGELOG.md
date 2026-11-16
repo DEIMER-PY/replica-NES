@@ -5,6 +5,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [0.2.0] - 2026-11-16
+
+Pantalla de inicio con biblioteca, botones de mando reasignables, más rendimiento y ejecutables descargables.
+
 ### Añadido
 
 - `nes-app`: pantalla de inicio con botones para abrir una ROM, biblioteca de la carpeta de juegos, recientes y aviso al arrastrar un archivo.
