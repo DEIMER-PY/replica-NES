@@ -106,6 +106,20 @@ impl KeyMap {
         }
     }
 
+    /// Tecla asignada a un botón, para cambiarla.
+    const fn key_mut(&mut self, button: Button) -> &mut Key {
+        match button {
+            Button::Up => &mut self.up,
+            Button::Down => &mut self.down,
+            Button::Left => &mut self.left,
+            Button::Right => &mut self.right,
+            Button::A => &mut self.a,
+            Button::B => &mut self.b,
+            Button::Select => &mut self.select,
+            Button::Start => &mut self.start,
+        }
+    }
+
     /// Botones pulsados según `is_down`, que indica si una tecla está pulsada.
     fn state(&self, is_down: impl Fn(Key) -> bool) -> PadState {
         PadState {
@@ -144,6 +158,35 @@ impl KeyBindings {
             Player::One => &self.player_one,
             Player::Two => &self.player_two,
         }
+    }
+
+    const fn map_mut(&mut self, player: Player) -> &mut KeyMap {
+        match player {
+            Player::One => &mut self.player_one,
+            Player::Two => &mut self.player_two,
+        }
+    }
+
+    /// Qué botón tiene asignada una tecla, si alguno.
+    pub fn find(&self, key: Key) -> Option<(Player, Button)> {
+        PLAYERS.into_iter().find_map(|player| {
+            Button::ALL
+                .into_iter()
+                .find(|&button| self.map(player).key(button) == key)
+                .map(|button| (player, button))
+        })
+    }
+
+    /// Asigna `key` a un botón.
+    ///
+    /// Si la tecla ya estaba en otro botón, los dos intercambian sus teclas: así nunca
+    /// queda una tecla en dos botones ni un botón sin tecla.
+    pub fn rebind(&mut self, player: Player, button: Button, key: Key) {
+        let previous = self.map(player).key(button);
+        if let Some((other_player, other_button)) = self.find(key) {
+            *self.map_mut(other_player).key_mut(other_button) = previous;
+        }
+        *self.map_mut(player).key_mut(button) = key;
     }
 
     /// Lee el teclado. Devuelve el estado de los dos mandos.
@@ -274,6 +317,30 @@ mod tests {
         assert!(merged.a && merged.start);
         assert!(!merged.b);
         assert_eq!(merged.merge(PadState::default()), merged);
+    }
+
+    #[test]
+    fn rebind_assigns_a_free_key() {
+        let mut bindings = KeyBindings::default();
+        bindings.rebind(Player::One, Button::A, Key::Space);
+        assert_eq!(bindings.map(Player::One).key(Button::A), Key::Space);
+        assert_eq!(bindings.find(Key::X), None, "la tecla anterior queda libre");
+    }
+
+    #[test]
+    fn rebind_swaps_with_the_button_that_had_the_key() {
+        let mut bindings = KeyBindings::default();
+        // `H` es el botón A del jugador 2; pasa a ser el A del jugador 1.
+        bindings.rebind(Player::One, Button::A, Key::H);
+        assert_eq!(bindings.find(Key::H), Some((Player::One, Button::A)));
+        assert_eq!(bindings.find(Key::X), Some((Player::Two, Button::A)));
+    }
+
+    #[test]
+    fn rebind_to_the_same_key_changes_nothing() {
+        let mut bindings = KeyBindings::default();
+        bindings.rebind(Player::One, Button::A, Key::X);
+        assert_eq!(bindings, KeyBindings::default());
     }
 
     #[test]
