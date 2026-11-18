@@ -438,7 +438,8 @@ impl NesApp {
                         self.error = Some(err.to_string());
                         return;
                     }
-                    self.screen.upload(ctx, self.emulator.frame());
+                    self.screen
+                        .upload(ctx, self.emulator.frame(), self.config.smooth);
                     self.notify(ctx, format!("Estado cargado de la ranura {slot}"));
                 }
                 Err(err) => self.error = Some(err.to_string()),
@@ -580,7 +581,8 @@ impl NesApp {
             }
         }
         if frames > 0 {
-            self.screen.upload(ctx, self.emulator.frame());
+            self.screen
+                .upload(ctx, self.emulator.frame(), self.config.smooth);
         }
     }
 }
