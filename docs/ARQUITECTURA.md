@@ -29,6 +29,72 @@ Ventajas de esta separación:
 - **Testeable:** `nes-core` se prueba sin ventana ni audio (tests headless).
 - **Portable:** `nes-core` no sabe nada de la plataforma; todo lo específico de escritorio o web vive en `nes-app`.
 
+## Diagramas
+
+### Componentes
+
+```mermaid
+flowchart TB
+    subgraph app["nes-app — binario (escritorio y web)"]
+        ui["Interfaz egui<br/>menús, ajustes, biblioteca"]
+        input["Entrada<br/>teclado + gilrs (mandos)"]
+        video["Vídeo<br/>textura, escalado, giro"]
+        audio["Audio<br/>cola → cpal"]
+        storage["Almacenamiento<br/>partidas, estados, config<br/>(disco o IndexedDB/localStorage)"]
+    end
+    subgraph core["nes-core — librería, sin E/S"]
+        emu["Emulator<br/>load_rom · run_frame · frame · audio_samples<br/>set_button · save_state"]
+    end
+    upstream["tetanes-core<br/>CPU 6502, PPU, APU y mappers"]
+    input --> emu
+    ui --> emu
+    emu --> video
+    emu --> audio
+    emu <--> storage
+    emu --> upstream
+```
+
+La app solo habla con `nes-core`; `nes-core` es lo único que conoce `tetanes-core`.
+
+### Un frame
+
+```mermaid
+sequenceDiagram
+    participant W as eframe (cada repintado)
+    participant A as nes-app
+    participant C as nes-core
+    participant U as tetanes-core
+    participant S as cpal (hilo de audio)
+    W->>A: update()
+    A->>A: leer teclado y mandos (gilrs)
+    A->>C: set_button(...)
+    loop frames que tocan según el reloj (x4 con avance rápido)
+        A->>C: run_frame()
+        C->>U: emular ~1/60 s
+    end
+    A->>C: frame()
+    A->>W: subir textura y dibujar
+    A->>C: audio_samples()
+    A->>S: encolar las muestras
+```
+
+### Publicación
+
+```mermaid
+flowchart LR
+    pr["Pull request a develop"] --> ci["ci.yml<br/>fmt · clippy · tests · web"]
+    ci --> merge["merge a develop"]
+    merge --> main["PR develop → main"]
+    main --> tag["tag vX.Y.Z"]
+    tag --> rel["release.yml"]
+    rel --> win["windows-latest<br/>compila .exe"]
+    rel --> lin["ubuntu-22.04<br/>compila binario"]
+    win --> smoke1["abre la app 15 s<br/>con la ROM de demo<br/>+ captura"]
+    lin --> smoke2["Xvfb: abre la app 15 s<br/>+ captura"]
+    smoke1 --> pub["GitHub Release<br/>ejecutables + SHA256SUMS.txt<br/>notas del CHANGELOG"]
+    smoke2 --> pub
+```
+
 ## Crates
 
 | Crate | Tipo | Responsabilidad |

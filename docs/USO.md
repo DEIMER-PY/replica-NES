@@ -143,6 +143,10 @@ La imagen se centra y se escala al redimensionar la ventana. Las opciones están
 | Opción | Qué hace |
 |---|---|
 | Escalado entero | Escala solo ×1, ×2, ×3..., para que todos los píxeles midan lo mismo. Activado por defecto |
+| Estirar hasta llenar la ventana | Ocupa toda la ventana aunque la imagen se deforme. Anula el escalado entero |
+| Suavizar la imagen | Filtra la imagen al escalarla: menos pixelada y más borrosa |
+| Líneas de barrido | Oscurece una franja de cada línea, como en un televisor de tubo. Se aprecia mejor a partir de ×3 |
+| Giro | 90° a la derecha, 180° o 90° a la izquierda: para un monitor girado o para jugar en vertical |
 | Proporción de televisor (8:7) | Ensancha la imagen como se veía en un televisor de la época, en lugar de píxeles cuadrados |
 | Pantalla completa | `F11` |
 
