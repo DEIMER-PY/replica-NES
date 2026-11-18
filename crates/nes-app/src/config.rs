@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     input::{KeyBindings, PadBindings},
     rom::RecentRoms,
-    video::Scaling,
+    video::{Rotation, Scaling},
 };
 
 /// Clave bajo la que se guarda la configuración.
@@ -24,6 +24,14 @@ pub struct Config {
     pub rom_dir: Option<std::path::PathBuf>,
     /// Escalar la imagen solo en múltiplos enteros.
     pub integer_scaling: bool,
+    /// Estirar la imagen hasta llenar la ventana.
+    pub stretch: bool,
+    /// Giro de la imagen.
+    pub rotation: Rotation,
+    /// Suavizar la imagen al escalar.
+    pub smooth: bool,
+    /// Líneas de barrido, como en un televisor de tubo.
+    pub scanlines: bool,
     /// Mostrar la imagen con la proporción de un televisor (píxeles 8:7).
     pub tv_aspect: bool,
     /// Teclas asignadas a los mandos.
@@ -42,6 +50,10 @@ impl Default for Config {
             recent_roms: RecentRoms::default(),
             rom_dir: None,
             integer_scaling: true,
+            stretch: false,
+            rotation: Rotation::None,
+            smooth: false,
+            scanlines: false,
             tv_aspect: false,
             key_bindings: KeyBindings::default(),
             pad_bindings: PadBindings::default(),
@@ -56,6 +68,10 @@ impl Config {
     pub const fn scaling(&self) -> Scaling {
         Scaling {
             integer: self.integer_scaling,
+            stretch: self.stretch,
+            rotation: self.rotation,
+            smooth: self.smooth,
+            scanlines: self.scanlines,
             tv_aspect: self.tv_aspect,
         }
     }
