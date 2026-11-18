@@ -8,6 +8,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 ### Añadido
 
 - Opciones de imagen: estirar hasta llenar la ventana, suavizado, líneas de barrido (efecto de televisor de tubo) y giro de 90°, 180° y 270°.
+- Icono propio de la app: en la ventana, en el ejecutable de Windows (Explorador y barra de tareas) y como favicon de la versión web.
 
 ## [0.2.0] - 2026-11-16
 
