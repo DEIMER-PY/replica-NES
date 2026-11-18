@@ -43,6 +43,13 @@ mod native {
 
     use eframe::egui;
 
+    /// Icono de la ventana y de la barra de tareas (en Windows el `.exe` lo lleva
+    /// además incrustado, ver `build.rs`).
+    pub(crate) fn icon() -> egui::IconData {
+        eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png"))
+            .expect("assets/icon.png es un PNG válido")
+    }
+
     use crate::{app, video};
 
     /// Escala inicial de la imagen de la NES en la ventana.
@@ -80,7 +87,8 @@ mod native {
                 .with_title(app::APP_NAME)
                 .with_inner_size(window_size)
                 .with_min_inner_size(video::NES_SIZE + egui::vec2(0.0, MENU_HEIGHT))
-                .with_drag_and_drop(true),
+                .with_drag_and_drop(true)
+                .with_icon(icon()),
             wgpu_options: wgpu_options(),
             ..Default::default()
         };
@@ -123,5 +131,15 @@ mod wasm {
                 Err(err) => panic!("no se pudo iniciar la app: {err:?}"),
             }
         });
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    #[test]
+    fn el_icono_es_valido() {
+        let icon = crate::native::icon();
+        assert_eq!((icon.width, icon.height), (256, 256));
+        assert_eq!(icon.rgba.len(), 256 * 256 * 4);
     }
 }
