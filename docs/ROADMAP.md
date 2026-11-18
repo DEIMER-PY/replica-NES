@@ -25,23 +25,31 @@ Cada fila es una rama `feature/*` que se integra en `develop` con su pull reques
 | ✅ | `docs/installation` | Guía de instalación, requisitos mínimos y fuentes de ROMs |
 | ✅ | `feature/home-screen` | Pantalla de inicio con biblioteca de juegos |
 
+## v0.3.0 — en curso
+
+| Estado | Rama | Funcionalidad |
+|---|---|---|
+| ✅ | `chore/release-hardening` | Ejecutable de Linux compilado en Ubuntu 22.04 (glibc 2.35) y prueba de arranque de 15 s de los ejecutables en la CI |
+| ✅ | `feature/app-icon` | Icono propio en la ventana, el `.exe` y la web |
+| ✅ | `feature/display-options` | Estirar, suavizado, líneas de barrido y giro |
+| ✅ | `docs/showcase` | Capturas, pruebas con juegos en Windows y Linux, tecnologías y diagramas |
+| ⬜ | `release v0.3.0` | Publicación en `main` con el tag `v0.3.0` |
+
 ## Pendiente de validar
 
-Las versiones publicadas se verificaron con la ROM de demostración del proyecto. Falta probar con hardware y juegos reales:
+Contra (mapper UxROM) y Super Mario Bros. 3 (MMC3) se probaron en Windows y Linux: ver [PRUEBAS.md](PRUEBAS.md). Falta:
 
-- Juegos comerciales u homebrew con scroll, sprites y distintos mappers.
 - Guardado de batería con un juego que lo use.
 - Mandos físicos, incluida la reasignación de botones con un mando genérico.
 - En escritorio: diálogos de archivo y de carpeta, arrastrar y soltar, pantalla completa y proporción 8:7.
-- Ejecutable de Linux generado por el workflow `release`; macOS (sin compilar ni probar).
+- macOS (sin compilar ni probar).
 - Sonido en la versión web y navegadores distintos de Chromium.
-- Linux y macOS (la CI compila y pasa los tests en Linux, pero la app no se ha ejecutado allí).
 
 ## Más adelante
 
 - Visores de depuración: CPU, nametables, paletas, sprites.
 - Rebobinado.
-- Filtros de imagen (CRT, NTSC).
+- Filtro NTSC (las líneas de barrido ya están).
 - Publicación de la versión web en GitHub Pages.
 - Ejecutable para macOS en el workflow `release`.
 - Carátulas o datos del juego (mapper, región) en la biblioteca.
