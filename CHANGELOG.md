@@ -5,11 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [0.3.0] - 2026-11-18
+
+Icono propio, más opciones de imagen, ejecutable de Linux compatible con más distribuciones y documentación con juegos probados.
+
 ### Añadido
 
 - Documentación: capturas con juegos, registro de pruebas en Windows y Linux (`docs/PRUEBAS.md`), tabla de tecnologías y diagramas de componentes, del ciclo de un frame y de la publicación.
 - Opciones de imagen: estirar hasta llenar la ventana, suavizado, líneas de barrido (efecto de televisor de tubo) y giro de 90°, 180° y 270°.
 - Icono propio de la app: en la ventana, en el ejecutable de Windows (Explorador y barra de tareas) y como favicon de la versión web.
+
+### Corregido
+
+- El ejecutable de Linux de la v0.2.0 necesitaba glibc 2.43 y no abría en la mayoría de distribuciones; ahora se compila en Ubuntu 22.04 y funciona desde glibc 2.35 (Ubuntu 22.04, Debian 12, Fedora 36 y posteriores).
+
+### Cambiado
+
+- CI: antes de publicar, cada ejecutable se abre 15 segundos con la ROM de demostración (en Linux con un servidor X virtual) y se guarda una captura.
 
 ## [0.2.0] - 2026-11-16
 

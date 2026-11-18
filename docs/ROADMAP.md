@@ -25,7 +25,7 @@ Cada fila es una rama `feature/*` que se integra en `develop` con su pull reques
 | ✅ | `docs/installation` | Guía de instalación, requisitos mínimos y fuentes de ROMs |
 | ✅ | `feature/home-screen` | Pantalla de inicio con biblioteca de juegos |
 
-## v0.3.0 — en curso
+## v0.3.0 — publicada el 2026-11-18
 
 | Estado | Rama | Funcionalidad |
 |---|---|---|
@@ -33,7 +33,7 @@ Cada fila es una rama `feature/*` que se integra en `develop` con su pull reques
 | ✅ | `feature/app-icon` | Icono propio en la ventana, el `.exe` y la web |
 | ✅ | `feature/display-options` | Estirar, suavizado, líneas de barrido y giro |
 | ✅ | `docs/showcase` | Capturas, pruebas con juegos en Windows y Linux, tecnologías y diagramas |
-| ⬜ | `release v0.3.0` | Publicación en `main` con el tag `v0.3.0` |
+| ✅ | `release v0.3.0` | Publicación en `main` con el tag `v0.3.0` |
 
 ## Pendiente de validar
 
