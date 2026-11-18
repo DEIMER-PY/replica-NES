@@ -39,3 +39,7 @@ web-sys = { version = "0.3", features = ["Document", "Element", "HtmlCanvasEleme
 
 [dev-dependencies]
 ron = "0.12"
+
+# Icono del ejecutable de Windows (ver build.rs).
+[build-dependencies]
+winresource = "0.1"

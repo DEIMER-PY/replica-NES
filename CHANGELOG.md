@@ -5,6 +5,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Añadido
+
+- Icono propio de la app: en la ventana, en el ejecutable de Windows (Explorador y barra de tareas) y como favicon de la versión web.
+
 ## [0.2.0] - 2026-11-16
 
 Pantalla de inicio con biblioteca, botones de mando reasignables, más rendimiento y ejecutables descargables.
